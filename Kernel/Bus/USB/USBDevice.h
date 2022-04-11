@@ -53,6 +53,7 @@ public:
     USBController const& controller() const { return *m_controller; }
 
     ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
+    bool is_configured() const { return m_current_configuration != nullptr; }
 
     Vector<USBConfiguration> const& configurations() const { return m_configurations; }
 
@@ -73,6 +74,8 @@ protected:
 
     NonnullLockRefPtr<USBController> m_controller;
     NonnullOwnPtr<Pipe> m_default_pipe; // Default communication pipe (endpoint0) used during enumeration
+
+    OwnPtr<USBConfiguration> m_current_configuration { nullptr };
 
 private:
     IntrusiveListNode<Device, NonnullLockRefPtr<Device>> m_hub_child_node;
