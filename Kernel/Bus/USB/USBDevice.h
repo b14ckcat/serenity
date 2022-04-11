@@ -58,6 +58,7 @@ public:
     Vector<USBConfiguration> const& configurations() const { return m_configurations; }
 
     SysFSUSBDeviceInformation& sysfs_device_info_node(Badge<USB::Hub>) { return *m_sysfs_device_info_node; }
+    ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
 
 protected:
     Device(NonnullLockRefPtr<USBController> controller, u8 address, u8 port, DeviceSpeed speed, NonnullOwnPtr<Pipe> default_pipe);
