@@ -21,6 +21,15 @@ ErrorOr<void> USBConfiguration::enumerate_interfaces()
     // to us in one go.
     auto transfer_length = TRY(m_device.control_transfer(USB_REQUEST_TRANSFER_DIRECTION_DEVICE_TO_HOST, USB_REQUEST_GET_DESCRIPTOR, (DESCRIPTOR_TYPE_CONFIGURATION << 8), 0, m_descriptor.total_length, descriptor_hierarchy_buffer.data()));
 
+    // FIXME: Something smells fishy with hubs on QEMU... There's apparently 1 interface descriptor,
+    // however transfer_length returns as sizeof(USBConfigurationDescriptor) [9 bytes] instead of wTotalLength (32-bytes)...
+    // This doesn't make any sense, as there should be more data for us to fetch.
+    // This shouldn't really matter because we don't really want to set configurations on the hub, but something doesn't
+    // feel right here, especially if devices start doing this too. Please investigate this in the future if something
+    // blows up :^)
+    if (transfer_length == sizeof(USBConfigurationDescriptor))
+        return {};
+
     // FIXME: Why does transfer length return the actual size +8 bytes?
     if (transfer_length < m_descriptor.total_length)
         return EIO;
