@@ -28,6 +28,7 @@ public:
     u8 device_address() const { return m_hub->address(); }
 
     ErrorOr<size_t> handle_control_transfer(Transfer& transfer);
+    ErrorOr<size_t> handle_bulk_transfer(Transfer& transfer);
 
     void check_for_port_updates() { m_hub->check_for_port_updates(); }
 
