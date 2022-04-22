@@ -490,5 +490,9 @@ else
         $SERENITY_PACKET_LOGGING_ARG \
         $SERENITY_NETFLAGS_WITH_DEFAULT_DEVICE \
         $SERENITY_KERNEL_AND_INITRD \
-        -append "${SERENITY_KERNEL_CMDLINE}"
+        -append "${SERENITY_KERNEL_CMDLINE}" \
+	-monitor unix:/home/user1/sock,server,nowait \
+	-drive if=none,file=/home/user1/t.disk,format=raw,id=disk1 \
+	-usb -device usb-storage,drive=disk1 \
+	#-device usb-mouse
 fi
