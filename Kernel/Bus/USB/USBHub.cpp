@@ -91,7 +91,7 @@ ErrorOr<void> Hub::enumerate_and_power_on_hub()
 // USB 2.0 Specification Section 11.24.2.7
 ErrorOr<void> Hub::get_port_status(u8 port, HubStatus& hub_status)
 {
-    // Ports are 1-based.
+    // Ports are indexed starting with 1
     if (port == 0 || port > m_hub_descriptor.number_of_downstream_ports)
         return EINVAL;
 

@@ -71,4 +71,28 @@ ErrorOr<size_t> Pipe::control_transfer(u8 request_type, u8 request, u16 value, u
     return transfer_length;
 }
 
+ErrorOr<size_t> Pipe::bulk_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data)
+{
+    USBRequestData usb_request;
+
+    usb_request.request_type = request_type;
+    usb_request.request = request;
+    usb_request.value = value;
+    usb_request.index = index;
+    usb_request.length = length;
+
+    auto transfer = TRY(Transfer::try_create(*this, length));
+    transfer->set_setup_packet(usb_request);
+
+    dbgln_if(USB_DEBUG, "Pipe: Transfer allocated @ {}", transfer->buffer_physical());
+    auto transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
+
+    // TODO: Check transfer for completion and copy data from transfer buffer into data
+    if (length > 0)
+        memcpy(reinterpret_cast<u8*>(data), transfer->buffer().as_ptr() + sizeof(USBRequestData), length);
+
+    dbgln_if(USB_DEBUG, "Pipe: Bulk Transfer complete!");
+    return transfer_length;
+}
+
 }
