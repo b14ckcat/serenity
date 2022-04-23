@@ -87,4 +87,5 @@ protected:
 public:
     using List = IntrusiveList<&Device::m_hub_child_node>;
 };
+
 }

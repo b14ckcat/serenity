@@ -1,4 +1,0 @@
-
-namespace Kernel::USB {
-
-}
