@@ -31,6 +31,7 @@ set(KERNEL_SOURCES
     Bus/USB/UHCI/UHCIController.cpp
     Bus/USB/UHCI/UHCIRootHub.cpp
     Bus/USB/USBConfiguration.cpp
+    Bus/USB/USBInterface.cpp
     Bus/USB/USBController.cpp
     Bus/USB/USBDevice.cpp
     Bus/USB/USBHub.cpp
@@ -115,6 +116,7 @@ set(KERNEL_SOURCES
     Storage/NVMe/NVMeQueue.cpp
     Storage/Ramdisk/Controller.cpp
     Storage/Ramdisk/Device.cpp
+    Storage/USB/USBMassStorageDevice.cpp
     Storage/StorageDevice.cpp
     Storage/StorageManagement.cpp
     DoubleBuffer.cpp

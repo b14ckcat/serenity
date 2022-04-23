@@ -52,8 +52,6 @@ public:
 
     ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
 
-    ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
-
 protected:
     Device(NonnullRefPtr<USBController> controller, u8 address, u8 port, DeviceSpeed speed, NonnullOwnPtr<Pipe> default_pipe);
 
@@ -78,4 +76,5 @@ private:
 public:
     using List = IntrusiveList<&Device::m_hub_child_node>;
 };
+
 }
