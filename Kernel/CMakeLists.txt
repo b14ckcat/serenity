@@ -85,7 +85,6 @@ set(KERNEL_SOURCES
     Graphics/Console/TextModeConsole.cpp
     Graphics/Console/VGAConsole.cpp
     Graphics/DisplayConnector.cpp
-    Graphics/FramebufferDevice.cpp
     Graphics/GraphicsManagement.cpp
     Graphics/Intel/NativeDisplayConnector.cpp
     Graphics/Intel/NativeGraphicsAdapter.cpp
@@ -97,7 +96,6 @@ set(KERNEL_SOURCES
     Graphics/VirtIOGPU/Console.cpp
     Graphics/VirtIOGPU/GPU3DDevice.cpp
     Graphics/VirtIOGPU/GraphicsAdapter.cpp
-    Graphics/GenericFramebufferDevice.cpp
     SanCov.cpp
     Storage/ATA/AHCIController.cpp
     Storage/ATA/AHCIPort.cpp
