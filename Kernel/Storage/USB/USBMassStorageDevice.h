@@ -22,7 +22,7 @@ public:
     virtual StringView class_name() const override;
 
 private:
-    USBMassStorageDevice(USB::Device const&, NonnullOwnPtr<KString> device_name);
+    USBMassStorageDevice(USB::Device const&, MinorNumber, NonnullOwnPtr<KString>);
 
     virtual void start_request(AsyncBlockDeviceRequest&) override;
 
