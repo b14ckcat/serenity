@@ -39,6 +39,13 @@ static constexpr u8 USB_MSC_REQUEST_BULK_ONLY_MASS_STORAGE_RESET = 0xFF;
 // Class-specific descriptor codes
 static constexpr u8 USB_MSC_PIPE_USAGE_CLASS_SPECIFIC_DESCRIPTOR = 0x24;
 
+// QEMU virtual mass storage device magic numbers
+// When QEMU inserts a virtual USB MSC device ("usb-storage"), it provides a device
+// that return an interface descriptor that does not contain the proper data to
+// identify it as a MSC device, so these values are checked as well as a workaround.
+static constexpr u16 USB_MSC_QEMU_VID = 0x46F4;
+static constexpr u16 USB_MSC_QEMU_PID = 0x0001;
+
 struct [[gnu::packed]] CommandBlockWrapper {
     u32 const dCBWSignature = 0x43425455; // Magic number that identifies a CBW
     u32 dCBWTag; // Tag that allows CBW to be matched with its CSW
