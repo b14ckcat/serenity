@@ -35,6 +35,7 @@ public:
 
     static u32 generate_controller_id();
 
+    void attach_hotplug_device(StorageDevice&);
     void remove_device(StorageDevice&);
 
 private:

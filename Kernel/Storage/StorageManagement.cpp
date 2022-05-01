@@ -45,6 +45,11 @@ void StorageManagement::remove_device(StorageDevice& device)
     m_storage_devices.remove(device);
 }
 
+void StorageManagement::attach_hotplug_device(StorageDevice& device)
+{
+    m_storage_devices.append(device);
+}
+
 bool StorageManagement::boot_argument_contains_partition_uuid()
 {
     return m_boot_argument.starts_with(partition_uuid_prefix);
