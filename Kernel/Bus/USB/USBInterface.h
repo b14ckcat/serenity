@@ -21,7 +21,7 @@ public:
         , m_endpoint_descriptors(endpoint_descriptors)
     {
         m_endpoint_descriptors.ensure_capacity(descriptor.number_of_endpoints);
-	load_drivers();
+	auto res = load_drivers();
     }
 
     Vector<USBEndpointDescriptor> const& endpoints() const { return m_endpoint_descriptors; }
@@ -29,7 +29,7 @@ public:
     USBInterfaceDescriptor const& descriptor() const { return m_descriptor; }
 
 private:
-    void load_drivers();
+    ErrorOr<void> load_drivers();
 
     USBConfiguration const& m_configuration;              // Configuration that this interface belongs to
     USBInterfaceDescriptor const m_descriptor;            // Descriptor backing this interface

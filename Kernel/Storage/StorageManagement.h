@@ -31,6 +31,7 @@ public:
     static MajorNumber storage_type_major_number();
     static MinorNumber generate_storage_minor_number();
 
+    void attach_hotplug_device(StorageDevice&);
     void remove_device(StorageDevice&);
 
 private:
