@@ -21,11 +21,11 @@ public:
         , m_endpoint_descriptors(endpoint_descriptors)
     {
         m_endpoint_descriptors.ensure_capacity(descriptor.number_of_endpoints);
-	load_drivers();
+	auto res = load_drivers();
     }
 
 private:
-    void load_drivers();
+    ErrorOr<void> load_drivers();
 
     USBConfiguration const& m_configuration;              // Configuration that this interface belongs to
     USBInterfaceDescriptor const m_descriptor;            // Descriptor backing this interface

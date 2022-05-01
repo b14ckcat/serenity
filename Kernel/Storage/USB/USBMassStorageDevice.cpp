@@ -14,7 +14,7 @@ namespace Kernel {
 
 ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(USB::Device const& usb_device)
 {
-    auto device_name = KString::must_create("USB storage"sv);
+    auto device_name = MUST(KString::formatted("storage device"));
     auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(usb_device, move(device_name));
     VERIFY(!device_or_error.is_error());
     return device_or_error.release_value();
