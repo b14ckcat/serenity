@@ -429,6 +429,7 @@ else()
         # Files from base Kernel
         Heap/kmalloc.cpp
         MiniStdLib.cpp
+        KSyms.cpp
 
         Memory/AddressSpace.cpp
         Memory/AnonymousVMObject.cpp
