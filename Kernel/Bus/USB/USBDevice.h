@@ -70,7 +70,6 @@ protected:
 
     OwnPtr<USBConfiguration> m_current_configuration { nullptr };
 
-private:
     IntrusiveListNode<Device, NonnullRefPtr<Device>> m_hub_child_node;
 
 public:
