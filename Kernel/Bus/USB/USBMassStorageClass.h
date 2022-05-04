@@ -7,8 +7,10 @@
 #pragma once
 
 #include <AK/Types.h>
+#include <AK/Memory.h>
 
 #include <Kernel/Bus/USB/USBDevice.h>
+#include <Kernel/Bus/USB/USBPipe.h>
 
 namespace Kernel::USB {
 
@@ -47,7 +49,7 @@ static constexpr u16 USB_MSC_QEMU_VID = 0x46F4;
 static constexpr u16 USB_MSC_QEMU_PID = 0x0001;
 
 struct [[gnu::packed]] CommandBlockWrapper {
-    u32 const dCBWSignature = 0x43425455; // Magic number that identifies a CBW
+    u32 const dCBWSignature { 0x43425455 }; // Magic number that identifies a CBW
     u32 dCBWTag; // Tag that allows CBW to be matched with its CSW
     u32 dCBWDataTransferLength; // Size in bytes of the data to be transfered on the bulk in/out endpoint (depending on direction bit in bmCBWFlags)
     u8 bmCBWFlags; // MSB indicates direction, 0 for host->device, 1 for device->host
@@ -57,10 +59,23 @@ struct [[gnu::packed]] CommandBlockWrapper {
 };
 
 struct [[gnu::packed]] CommandStatusWrapper {
-    u32 const dCBWSignature = 0x53425355; // Magic number that identifies a CSW
+    u32 const dCBWSignature { 0x53425355 }; // Magic number that identifies a CSW
     u32 dCSWTag; // Tag that allows CSW to be matched with its CBW
     u32 dCSWDataResidue; // Indicates the difference between the amount of data expected (in bytes?) and the amount received
     u8 bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
+};
+
+struct USBMassStorageHandle {
+    USBMassStorageHandle(Device const& usb_device, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out) :
+    m_usb_device(usb_device),
+    m_bulk_in(move(bulk_in)),
+    m_bulk_out(move(bulk_out))
+    {
+    }
+
+    Device const& m_usb_device;
+    OwnPtr<Pipe> m_bulk_in;
+    OwnPtr<Pipe> m_bulk_out;
 };
 
 }
