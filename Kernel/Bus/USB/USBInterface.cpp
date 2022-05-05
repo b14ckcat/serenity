@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <AK/RefPtr.h>
 #include <Kernel/Bus/USB/USBController.h>
 #include <Kernel/Bus/USB/USBClasses.h>
 #include <Kernel/Bus/USB/USBConfiguration.h>
@@ -14,6 +13,8 @@
 #include <Kernel/Bus/USB/USBMassStorageClass.h>
 #include <Kernel/Storage/StorageManagement.h>
 #include <Kernel/Storage/USB/USBMassStorageDevice.h>
+#include <AK/NonnullOwnPtr.h>
+#include <AK/OwnPtr.h>
 
 namespace Kernel::USB
 {
@@ -39,26 +40,14 @@ ErrorOr<void> USBInterface::load_driver()
         for (auto endpoint_desc : m_endpoint_descriptors) {
 	    if (endpoint_desc.endpoint_attributes_bitmap & USBEndpoint::ENDPOINT_ATTRIBUTES_TRANSFER_TYPE_BULK) {
                 if (endpoint_desc.endpoint_address & USBEndpoint::ENDPOINT_ADDRESS_DIRECTION_IN)
-                    bulk_in = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), 
-                              Pipe::Type::Control, 
-                              Pipe::Direction::In, 
-                              endpoint_desc.endpoint_address, 
-                              endpoint_desc.max_packet_size, 
-                              m_configuration.device().address(), 
-                              10));
+                    bulk_in = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), Pipe::Type::Control, Pipe::Direction::In, endpoint_desc.endpoint_address, endpoint_desc.max_packet_size, m_configuration.device().address(), 10));
 		else
-                    bulk_out = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), 
-                               Pipe::Type::Control, 
-                               Pipe::Direction::Out, 
-                               endpoint_desc.endpoint_address, 
-                               endpoint_desc.max_packet_size, 
-                               m_configuration.device().address(), 
-                               10));
+                    bulk_out = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), Pipe::Type::Control, Pipe::Direction::Out, endpoint_desc.endpoint_address, endpoint_desc.max_packet_size, m_configuration.device().address(), 10));
 	    }
 	}
 
-	auto usb_msc_handle = USBMassStorageHandle(m_configuration.device(), move(bulk_in), move(bulk_out));
-        auto usb_mass_storage_device = TRY(USBMassStorageDevice::create(m_configuration.device()));
+        auto usb_msc_handle = TRY(adopt_nonnull_own_or_enomem(new MassStorageHandle(m_configuration.device(), move(bulk_in), move(bulk_out))));
+        auto usb_mass_storage_device = TRY(USBMassStorageDevice::create(move(usb_msc_handle)));
         StorageManagement::the().attach_hotplug_device(usb_mass_storage_device);
     }
 
