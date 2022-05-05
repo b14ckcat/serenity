@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include <AK/Try.h>
+#include <AK/OwnPtr.h>
 #include <Kernel/KString.h>
+#include <Kernel/Bus/USB/USBMassStorageClass.h>
 #include <Kernel/Storage/StorageDevice.h>
 
 namespace Kernel {
@@ -16,19 +17,19 @@ class USBMassStorageDevice final : public StorageDevice {
     friend class DeviceManagement;
 
 public:
-    static ErrorOr<NonnullRefPtr<USBMassStorageDevice>> create(USB::Device const&);
+    static ErrorOr<NonnullRefPtr<USBMassStorageDevice>> create(OwnPtr<USB::MassStorageHandle>);
     virtual ~USBMassStorageDevice() override;
 
     virtual StringView class_name() const override;
 
 private:
-    USBMassStorageDevice(USB::Device const&, MinorNumber, NonnullOwnPtr<KString>);
+    USBMassStorageDevice(OwnPtr<USB::MassStorageHandle>, MinorNumber, NonnullOwnPtr<KString>);
 
     virtual void start_request(AsyncBlockDeviceRequest&) override;
 
     virtual CommandSet command_set() const override { return CommandSet::SCSI; }
 
-    RefPtr<USB::Device> m_attached_usb_device;
+    OwnPtr<USB::MassStorageHandle> m_usb_msc_handle;
     RefPtr<Thread> m_polling_thread;
 };
 

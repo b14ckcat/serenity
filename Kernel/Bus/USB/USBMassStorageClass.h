@@ -65,8 +65,8 @@ struct [[gnu::packed]] CommandStatusWrapper {
     u8 bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
 };
 
-struct USBMassStorageHandle {
-    USBMassStorageHandle(Device const& usb_device, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out) :
+struct MassStorageHandle {
+    MassStorageHandle(Device const& usb_device, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out) :
     m_usb_device(usb_device),
     m_bulk_in(move(bulk_in)),
     m_bulk_out(move(bulk_out))
