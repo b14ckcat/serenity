@@ -12,6 +12,7 @@
 #include <Kernel/FileSystem/OpenFileDescription.h>
 #include <Kernel/Storage/StorageManagement.h>
 #include <Kernel/Storage/USB/USBMassStorageDevice.h>
+#include <Kernel/Storage/SCSI/SCSI.h>
 
 namespace Kernel {
 
@@ -19,14 +20,15 @@ ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr
 {
     auto minor_number = StorageManagement::generate_storage_minor_number();
     auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
+    TRY(usb_msc_handle->get_max_lun());
 
-    auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, move(device_name));
+    auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, 512, 1, move(device_name));
     VERIFY(!device_or_error.is_error());
     return device_or_error.release_value();
 }
 
-USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, NonnullOwnPtr<KString> device_name)
-    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, 512, 512*8, move(device_name))
+USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, size_t sector_size, u64 disk_size, NonnullOwnPtr<KString> device_name)
+    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, sector_size, sector_size / disk_size, move(device_name))
     , m_usb_msc_handle(move(usb_msc_handle))
 {
 }

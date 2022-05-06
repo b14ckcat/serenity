@@ -24,6 +24,8 @@ public:
         auto res = load_driver();
     }
 
+    u8 get_id() const { return m_descriptor.interface_id; }
+
 private:
     ErrorOr<void> load_driver();
 
