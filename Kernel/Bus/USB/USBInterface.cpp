@@ -24,6 +24,7 @@ ErrorOr<void> USBInterface::load_driver()
 {
     auto device_descriptor = m_configuration.device().device_descriptor();
 
+    // *** USB mass storage class handling ***
     // Sorry about this huge conditional statement but its necessary to check for QEMU's
     // special case since it doesn't play nicely and use the proper interface descriptor 
     // values that specify USB class
@@ -46,7 +47,8 @@ ErrorOr<void> USBInterface::load_driver()
 	    }
 	}
 
-        auto usb_msc_handle = TRY(adopt_nonnull_own_or_enomem(new MassStorageHandle(m_configuration.device(), move(bulk_in), move(bulk_out))));
+        auto usb_msc_handle = TRY(adopt_nonnull_own_or_enomem(new MassStorageHandle(m_configuration.device(), *this, move(bulk_in), move(bulk_out))));
+
         auto usb_mass_storage_device = TRY(USBMassStorageDevice::create(move(usb_msc_handle)));
         StorageManagement::the().attach_hotplug_device(usb_mass_storage_device);
     }

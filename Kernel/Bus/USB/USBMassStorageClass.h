@@ -48,8 +48,11 @@ static constexpr u8 USB_MSC_PIPE_USAGE_CLASS_SPECIFIC_DESCRIPTOR = 0x24;
 static constexpr u16 USB_MSC_QEMU_VID = 0x46F4;
 static constexpr u16 USB_MSC_QEMU_PID = 0x0001;
 
+static constexpr u64 USB_MSC_CBW_MAGIC_NUMBER = 0x43425455;
+static constexpr u64 USB_MSC_CSW_MAGIC_NUMBER = 0x53425355;
+
 struct [[gnu::packed]] CommandBlockWrapper {
-    u32 const dCBWSignature { 0x43425455 }; // Magic number that identifies a CBW
+    u32 const dCBWSignature { USB_MSC_CBW_MAGIC_NUMBER };
     u32 dCBWTag; // Tag that allows CBW to be matched with its CSW
     u32 dCBWDataTransferLength; // Size in bytes of the data to be transfered on the bulk in/out endpoint (depending on direction bit in bmCBWFlags)
     u8 bmCBWFlags; // MSB indicates direction, 0 for host->device, 1 for device->host
@@ -59,21 +62,21 @@ struct [[gnu::packed]] CommandBlockWrapper {
 };
 
 struct [[gnu::packed]] CommandStatusWrapper {
-    u32 const dCBWSignature { 0x53425355 }; // Magic number that identifies a CSW
+    u32 const dCBWSignature { USB_MSC_CSW_MAGIC_NUMBER };
     u32 dCSWTag; // Tag that allows CSW to be matched with its CBW
     u32 dCSWDataResidue; // Indicates the difference between the amount of data expected (in bytes?) and the amount received
     u8 bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
 };
 
-struct MassStorageHandle {
-    MassStorageHandle(Device const& usb_device, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out) :
-    m_usb_device(usb_device),
-    m_bulk_in(move(bulk_in)),
-    m_bulk_out(move(bulk_out))
-    {
-    }
+class MassStorageHandle {
+public:
+    MassStorageHandle(Device const& usb_device, USBInterface const& usb_interface, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out);
 
+    ErrorOr<u8> get_max_lun();
+
+private:
     Device const& m_usb_device;
+    USBInterface const& m_usb_interface;
     OwnPtr<Pipe> m_bulk_in;
     OwnPtr<Pipe> m_bulk_out;
 };

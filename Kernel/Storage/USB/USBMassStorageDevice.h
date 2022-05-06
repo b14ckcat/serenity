@@ -20,14 +20,13 @@ public:
     static ErrorOr<NonnullRefPtr<USBMassStorageDevice>> create(OwnPtr<USB::MassStorageHandle>);
     virtual ~USBMassStorageDevice() override;
 
-    virtual StringView class_name() const override;
-
-private:
-    USBMassStorageDevice(OwnPtr<USB::MassStorageHandle>, MinorNumber, NonnullOwnPtr<KString>);
-
     virtual void start_request(AsyncBlockDeviceRequest&) override;
 
     virtual CommandSet command_set() const override { return CommandSet::SCSI; }
+    virtual StringView class_name() const override;
+
+private:
+    USBMassStorageDevice(OwnPtr<USB::MassStorageHandle>, MinorNumber, size_t, u64, NonnullOwnPtr<KString>);
 
     OwnPtr<USB::MassStorageHandle> m_usb_msc_handle;
     RefPtr<Thread> m_polling_thread;
