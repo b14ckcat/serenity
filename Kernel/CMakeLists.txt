@@ -36,6 +36,7 @@ set(KERNEL_SOURCES
     Bus/USB/USBManagement.cpp
     Bus/USB/USBPipe.cpp
     Bus/USB/USBTransfer.cpp
+    Bus/USB/USBMassStorageClass.cpp
     Bus/VirtIO/Console.cpp
     Bus/VirtIO/ConsolePort.cpp
     Bus/VirtIO/Device.cpp
