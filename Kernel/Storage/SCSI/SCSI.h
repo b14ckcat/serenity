@@ -155,4 +155,43 @@ enum SCSI_COMMANDS {
     SCSI_VOLUME_SET_OUT
 };
 
+struct [[gnu::packed]] CommandDescriptorBlock6 {
+    u8 opcode;
+    u8 misc; // Only 3 highest bits are used
+    u16 logical_block_addr;
+    u8 len; // Transfer, paramater list, or allocation length
+    u8 control;
 };
+static_assert(sizeof(CommandDescriptorBlock6) == 6);
+
+struct [[gnu::packed]] CommandDescriptorBlock10 {
+    u8 opcode;
+    u8 misc_and_service; // Highest 3 bits for misc, lower 5 for service action
+    u32 logical_block_addr;
+    u8 misc_continued; // More miscellaneous data
+    u16 len; // Transfer, paramater list, or allocation length
+    u8 control;
+};
+static_assert(sizeof(CommandDescriptorBlock10) == 10);
+
+struct [[gnu::packed]] CommandDescriptorBlock12 {
+    u8 opcode;
+    u8 misc_and_service; // Highest 3 bits for misc, lower 5 for service action
+    u32 logical_block_addr;
+    u32 len; // Transfer, paramater list, or allocation length
+    u8 misc_continued; // More miscellaneous data
+    u8 control;
+};
+static_assert(sizeof(CommandDescriptorBlock12) == 12);
+
+struct [[gnu::packed]] CommandDescriptorBlock16 {
+    u8 opcode;
+    u8 misc;
+    u64 logical_block_addr;
+    u32 len; // Transfer, paramater list, or allocation length
+    u8 misc_continued; // More miscellaneous data
+    u8 control;
+};
+static_assert(sizeof(CommandDescriptorBlock16) == 16);
+
+}
