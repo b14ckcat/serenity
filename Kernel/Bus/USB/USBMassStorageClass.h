@@ -58,8 +58,9 @@ struct [[gnu::packed]] CommandBlockWrapper {
     u8 bmCBWFlags; // MSB indicates direction, 0 for host->device, 1 for device->host
     u8 bCBWLUN; // Lower 4 bits only, indicates device LUN to send command block to
     u8 bCBWCBLength; // Lower 5 bits only, command block length in bytes
-    u32 CBWCB[4]; // Command block to be sent to device
+    u8 CBWCB[16]; // Command block to be sent to device
 };
+static_assert(sizeof(CommandBlockWrapper) == 31);
 
 struct [[gnu::packed]] CommandStatusWrapper {
     u32 const dCBWSignature { USB_MSC_CSW_MAGIC_NUMBER };
@@ -67,12 +68,23 @@ struct [[gnu::packed]] CommandStatusWrapper {
     u32 dCSWDataResidue; // Indicates the difference between the amount of data expected (in bytes?) and the amount received
     u8 bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
 };
+static_assert(sizeof(CommandStatusWrapper) == 13);
 
 class MassStorageHandle {
 public:
     MassStorageHandle(Device const& usb_device, USBInterface const& usb_interface, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out);
 
     ErrorOr<u8> get_max_lun();
+
+    template<class T>
+    ErrorOr<OwnPtr<CommandStatusWrapper>> try_scsi_command(T command_descriptor_block)
+    {
+        auto cbw = CommandBlockWrapper();
+	memcpy(cbw.CBWCB, &command_descriptor_block, sizeof(T));
+
+        auto csw = TRY(adopt_nonnull_own_or_enomem(new CommandStatusWrapper()));
+        return csw;
+    }
 
 private:
     Device const& m_usb_device;

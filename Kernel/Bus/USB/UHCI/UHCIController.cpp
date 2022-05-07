@@ -430,26 +430,19 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+ErrorOr<size_t> UHCIController::submit_bulk_transfer(bool dir_in, Transfer& transfer)
 {
-Pipe& pipe = transfer.pipe(); // Short circuit the pipe related to this transfer
-    bool direction_in = (transfer.request().request_type & USB_REQUEST_TRANSFER_DIRECTION_DEVICE_TO_HOST) == USB_REQUEST_TRANSFER_DIRECTION_DEVICE_TO_HOST;
+    Pipe& pipe = transfer.pipe();
+    dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
 
-    dbgln_if(UHCI_DEBUG, "UHCI: Received interrupt transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
-
-    // FIXME: Allow Short-circuit the root hub.
-
-    // Create a new descriptor chain
     TransferDescriptor* last_data_descriptor;
     TransferDescriptor* data_descriptor_chain;
-    auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr() + sizeof(USBRequestData));
-    TRY(create_chain(pipe, direction_in ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
+    auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr());
+    TRY(create_chain(pipe, dir_in ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
 
     pipe.set_toggle(true);
-
     last_data_descriptor->terminate();
 
-    // Cool, everything should be chained together now! Let's print it out
     if constexpr (UHCI_VERBOSE_DEBUG) {
         if (data_descriptor_chain) {
             dbgln("Data TD");
@@ -470,7 +463,6 @@ Pipe& pipe = transfer.pipe(); // Short circuit the pipe related to this transfer
 
     size_t transfer_size = 0;
     while (!transfer.complete()) {
-
         transfer_size = poll_transfer_queue(*transfer_queue);
     }
 
@@ -490,6 +482,11 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 
     while (descriptor) {
         u32 status = descriptor->status();
+
+        if (status & TransferDescriptor::StatusBits::NAKReceived) {
+            transfer_still_in_progress = false;
+            break;
+        }
 
         if (status & TransferDescriptor::StatusBits::Active) {
             transfer_still_in_progress = true;

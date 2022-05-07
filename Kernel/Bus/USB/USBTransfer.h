@@ -25,6 +25,7 @@ public:
     ~Transfer();
 
     void set_setup_packet(USBRequestData const& request);
+    void set_data(u16 len, void * data);
     void set_complete() { m_complete = true; }
     void set_error_occurred() { m_error_occurred = true; }
 
@@ -47,4 +48,5 @@ private:
     bool m_complete { false };                   // Has this transfer been completed?
     bool m_error_occurred { false };             // Did an error occur during this transfer?
 };
+
 }

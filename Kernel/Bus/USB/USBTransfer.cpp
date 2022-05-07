@@ -43,4 +43,10 @@ void Transfer::set_setup_packet(USBRequestData const& request)
     m_request = request;
 }
 
+void Transfer::set_data(u16 len, void * data)
+{
+    // TODO: bounds checking
+    memcpy(buffer().as_ptr(), data, len);
+}
+
 }
