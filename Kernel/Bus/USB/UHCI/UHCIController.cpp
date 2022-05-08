@@ -430,7 +430,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<size_t> UHCIController::submit_bulk_transfer(bool dir_in, Transfer& transfer)
+ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 {
     Pipe& pipe = transfer.pipe();
     dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
@@ -438,7 +438,7 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(bool dir_in, Transfer& tran
     TransferDescriptor* last_data_descriptor;
     TransferDescriptor* data_descriptor_chain;
     auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr());
-    TRY(create_chain(pipe, dir_in ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
+    TRY(create_chain(pipe, transfer.pipe().direction() == Pipe::Direction::In ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
 
     last_data_descriptor->terminate();
 

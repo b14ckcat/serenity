@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/StdLibExtras.h>
 #include <Kernel/Bus/USB/PacketTypes.h>
 #include <Kernel/Bus/USB/UHCI/UHCIController.h>
 #include <Kernel/Bus/USB/USBPipe.h>
@@ -77,8 +78,8 @@ ErrorOr<size_t> Pipe::bulk_transfer_in(u16 length, void* data)
 
     dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
 
-    auto transfer_length = TRY(m_controller->submit_bulk_transfer(true, *transfer));
-    memcpy(data, transfer->buffer().as_ptr(), transfer_length);
+    auto transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
+    memcpy(data, transfer->buffer().as_ptr(), min(length, transfer_length));
 
     dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer complete!");
 
@@ -92,7 +93,7 @@ ErrorOr<size_t> Pipe::bulk_transfer_out(u16 length, void* data)
 
     dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer allocated @ {}", transfer->buffer_physical());
 
-    auto transfer_length = TRY(m_controller->submit_bulk_transfer(false, *transfer));
+    auto transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
 
     dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer complete!");
 
