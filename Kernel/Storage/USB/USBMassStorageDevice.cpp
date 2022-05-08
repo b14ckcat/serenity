@@ -20,7 +20,20 @@ ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr
 {
     auto minor_number = StorageManagement::generate_storage_minor_number();
     auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
-    TRY(usb_msc_handle->get_max_lun());
+
+    auto max_lun = TRY(usb_msc_handle->get_max_lun());
+
+    if (max_lun == 0) {
+        auto test_unit_ready = CommandDescriptorBlock6 {
+            .opcode = SCSI_INQUIRY,
+    	    .misc = 0x00,
+    	    .logical_block_addr = 0x00,
+	    .len = 0,
+	    .control = 0x00
+	};
+
+	TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(test_unit_ready));
+    }
 
     auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, 512, 1, move(device_name));
     VERIFY(!device_or_error.is_error());

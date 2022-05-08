@@ -517,13 +517,16 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 
     while (descriptor) {
         u32 status = descriptor->status();
+	dbgln_if(USB_DEBUG, "Status: {}", status);
 
         if (status & TransferDescriptor::StatusBits::NAKReceived) {
+	    dbgln_if(USB_DEBUG, "NAK");
             transfer_still_in_progress = false;
             break;
         }
 
         if (status & TransferDescriptor::StatusBits::Active) {
+	    dbgln_if(USB_DEBUG, "Active");
             transfer_still_in_progress = true;
             break;
         }
@@ -536,6 +539,7 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
         }
 
         transfer_size += descriptor->actual_packet_length();
+	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
         descriptor = descriptor->next_td();
     }
 
