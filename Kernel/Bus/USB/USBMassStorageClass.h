@@ -81,10 +81,14 @@ public:
     {
         auto cbw = CommandBlockWrapper();
 	memcpy(cbw.CBWCB, &command_descriptor_block, sizeof(T));
-	auto transfer_size = m_bulk_out->bulk_transfer(false, sizeof(CommandBlockWrapper), &cbw);
-	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
-
+	auto transfer_size = m_bulk_out->bulk_transfer_out(sizeof(CommandBlockWrapper), &cbw);
+	dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
         
+	u8 buf[13] = {0};
+	transfer_size = m_bulk_in->bulk_transfer_in(13, buf);
+	dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
+        for (int i = 0; i < 13; i++)
+            dbgln("Byte {}: {}", i, buf[i]);
         auto csw = TRY(adopt_nonnull_own_or_enomem(new CommandStatusWrapper()));
         return csw;
     }

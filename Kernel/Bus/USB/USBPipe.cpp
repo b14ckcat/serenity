@@ -71,18 +71,30 @@ ErrorOr<size_t> Pipe::control_transfer(u8 request_type, u8 request, u16 value, u
     return transfer_length;
 }
 
-ErrorOr<size_t> Pipe::bulk_transfer(bool dir_in, u16 length, void* data)
+ErrorOr<size_t> Pipe::bulk_transfer_in(u16 length, void* data)
+{
+    auto transfer = TRY(Transfer::try_create(*this, length));
+
+    dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
+
+    auto transfer_length = TRY(m_controller->submit_bulk_transfer(true, *transfer));
+    memcpy(data, transfer->buffer().as_ptr(), transfer_length);
+
+    dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer complete!");
+
+    return transfer_length;
+}
+
+ErrorOr<size_t> Pipe::bulk_transfer_out(u16 length, void* data)
 {
     auto transfer = TRY(Transfer::try_create(*this, length));
     transfer->set_data(length, data);
 
-    dbgln_if(USB_DEBUG, "Pipe: Bulk transfer allocated @ {}", transfer->buffer_physical());
-    auto transfer_length = TRY(m_controller->submit_bulk_transfer(dir_in, *transfer));
+    dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer allocated @ {}", transfer->buffer_physical());
 
-    for (int i = 0; i < 31; i++)
-        dbgln("Byte {}: {}", i, *(transfer->buffer().as_ptr() +i));
+    auto transfer_length = TRY(m_controller->submit_bulk_transfer(false, *transfer));
 
-    dbgln_if(USB_DEBUG, "Pipe: Bulk transfer complete!");
+    dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer complete!");
 
     return transfer_length;
 }
