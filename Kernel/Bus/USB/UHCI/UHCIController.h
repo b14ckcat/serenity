@@ -47,7 +47,7 @@ public:
     ErrorOr<void> spawn_port_process();
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
-    virtual ErrorOr<size_t> submit_bulk_transfer(bool dir_in, Transfer& transfer) override;
+    virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);

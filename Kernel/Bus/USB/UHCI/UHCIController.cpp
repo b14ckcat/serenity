@@ -463,7 +463,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<size_t> UHCIController::submit_bulk_transfer(bool dir_in, Transfer& transfer)
+ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 {
     Pipe& pipe = transfer.pipe();
     dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
