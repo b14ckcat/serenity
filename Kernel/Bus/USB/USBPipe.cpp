@@ -72,30 +72,27 @@ ErrorOr<size_t> Pipe::control_transfer(u8 request_type, u8 request, u16 value, u
     return transfer_length;
 }
 
-ErrorOr<size_t> Pipe::bulk_transfer_in(u16 length, void* data)
+ErrorOr<size_t> Pipe::bulk_transfer(u16 length, void* data)
 {
+    size_t transfer_length = 0;
     auto transfer = TRY(Transfer::try_create(*this, length));
 
-    dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
-
-    auto transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
-    memcpy(data, transfer->buffer().as_ptr(), min(length, transfer_length));
-
-    dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer complete!");
-
-    return transfer_length;
-}
-
-ErrorOr<size_t> Pipe::bulk_transfer_out(u16 length, void* data)
-{
-    auto transfer = TRY(Transfer::try_create(*this, length));
-    transfer->set_data(length, data);
-
-    dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer allocated @ {}", transfer->buffer_physical());
-
-    auto transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
-
-    dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer complete!");
+    if (m_direction == Direction::In) {
+        dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
+        transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
+        memcpy(data, transfer->buffer().as_ptr(), min(length, transfer_length));
+        dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer complete!");
+    } 
+    
+    else if (m_direction == Direction::Out) {
+        transfer->set_data(length, data);
+        dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer allocated @ {}", transfer->buffer_physical());
+        transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
+        dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer complete!");
+    }
+    
+    else if (m_direction == Direction::Bidirectional)
+        dbgln_if(USB_DEBUG, "Pipe: Bulk transfers on bidirectional pipe not supported");
 
     return transfer_length;
 }
