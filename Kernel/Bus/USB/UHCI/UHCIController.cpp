@@ -440,7 +440,6 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(bool dir_in, Transfer& tran
     auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr());
     TRY(create_chain(pipe, dir_in ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
 
-    pipe.set_toggle(true);
     last_data_descriptor->terminate();
 
     if constexpr (UHCI_VERBOSE_DEBUG) {
@@ -464,6 +463,7 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(bool dir_in, Transfer& tran
     size_t transfer_size = 0;
     while (!transfer.complete()) {
         transfer_size = poll_transfer_queue(*transfer_queue);
+	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
     }
 
     free_descriptor_chain(transfer_queue->get_first_td());
@@ -482,13 +482,16 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 
     while (descriptor) {
         u32 status = descriptor->status();
+	dbgln_if(USB_DEBUG, "Status: {}", status);
 
         if (status & TransferDescriptor::StatusBits::NAKReceived) {
+	    dbgln_if(USB_DEBUG, "NAK");
             transfer_still_in_progress = false;
             break;
         }
 
         if (status & TransferDescriptor::StatusBits::Active) {
+	    dbgln_if(USB_DEBUG, "Active");
             transfer_still_in_progress = true;
             break;
         }
@@ -501,6 +504,7 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
         }
 
         transfer_size += descriptor->actual_packet_length();
+	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
         descriptor = descriptor->next_td();
     }
 

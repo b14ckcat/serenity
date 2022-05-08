@@ -48,7 +48,7 @@ static constexpr u8 USB_MSC_PIPE_USAGE_CLASS_SPECIFIC_DESCRIPTOR = 0x24;
 static constexpr u16 USB_MSC_QEMU_VID = 0x46F4;
 static constexpr u16 USB_MSC_QEMU_PID = 0x0001;
 
-static constexpr u64 USB_MSC_CBW_MAGIC_NUMBER = 0x43425455;
+static constexpr u64 USB_MSC_CBW_MAGIC_NUMBER = 0x43425355;
 static constexpr u64 USB_MSC_CSW_MAGIC_NUMBER = 0x53425355;
 
 struct [[gnu::packed]] CommandBlockWrapper {
@@ -63,7 +63,7 @@ struct [[gnu::packed]] CommandBlockWrapper {
 static_assert(sizeof(CommandBlockWrapper) == 31);
 
 struct [[gnu::packed]] CommandStatusWrapper {
-    u32 const dCBWSignature { USB_MSC_CSW_MAGIC_NUMBER };
+    u32 const dCBWSignature { USB_MSC_CBW_MAGIC_NUMBER };
     u32 dCSWTag; // Tag that allows CSW to be matched with its CBW
     u32 dCSWDataResidue; // Indicates the difference between the amount of data expected (in bytes?) and the amount received
     u8 bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
@@ -81,7 +81,10 @@ public:
     {
         auto cbw = CommandBlockWrapper();
 	memcpy(cbw.CBWCB, &command_descriptor_block, sizeof(T));
+	auto transfer_size = m_bulk_out->bulk_transfer(false, sizeof(CommandBlockWrapper), &cbw);
+	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
 
+        
         auto csw = TRY(adopt_nonnull_own_or_enomem(new CommandStatusWrapper()));
         return csw;
     }
