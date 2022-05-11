@@ -79,6 +79,8 @@ if [ -z "$SERENITY_QEMU_BIN" ]; then
     fi
 fi
 
+#SERENITY_QEMU_BIN=/home/user1/repos/qemu/build/qemu-system-x86_64
+
 
 # For default values, see Kernel/CommandLine.cpp
 [ -z "$SERENITY_KERNEL_CMDLINE" ] && SERENITY_KERNEL_CMDLINE="hello"
