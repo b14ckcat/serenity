@@ -13,7 +13,6 @@
 #include <Kernel/FileSystem/OpenFileDescription.h>
 #include <Kernel/Storage/StorageManagement.h>
 #include <Kernel/Storage/USB/SCSI.h>
-#include <Kernel/Storage/USB/SCSICommands.h>
 #include <Kernel/Storage/USB/USBMassStorageDevice.h>
 
 namespace Kernel {
@@ -24,14 +23,16 @@ ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr
     auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
 
     auto max_lun = TRY(usb_msc_handle->get_max_lun());
-    if (max_lun == 0) {
+    for (int i = 0; i <= max_lun; i++) {
         constexpr u8 inquiry_size = 36; // Unwritten standard for inquiry data size
         u8 buf[inquiry_size + 1] = {'\0'};
-        TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(CDB_SCSI_INQUIRY, 0, USB::Pipe::Direction::In, inquiry_size, inquiry_size, buf));
+        TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(CDB_INQUIRY, 0, USB::Pipe::Direction::In, inquiry_size, inquiry_size+1, buf));
         dbgln("Data in: {}", buf);
-        
-    } else {
-        dbgln("Multi-LUN USB storage devices not currently supported");
+
+        memset(buf, '\0', inquiry_size+1);
+	constexpr u8 read_cap_size = 8;
+        TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(CDB_READ_CAPACITY, 0, USB::Pipe::Direction::In, read_cap_size, inquiry_size+1, buf));
+        dbgln("Data in: {}", buf);
     }
 
     auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, 512, 1, move(device_name));
