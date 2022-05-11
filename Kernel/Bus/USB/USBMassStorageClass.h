@@ -8,9 +8,9 @@
 
 #include <AK/Types.h>
 #include <AK/Memory.h>
-
 #include <Kernel/Bus/USB/USBDevice.h>
 #include <Kernel/Bus/USB/USBPipe.h>
+#include <Kernel/Storage/USB/SCSI.h>
 
 namespace Kernel::USB {
 
@@ -77,18 +77,30 @@ public:
     ErrorOr<u8> get_max_lun();
 
     template<class T>
-    ErrorOr<OwnPtr<CommandStatusWrapper>> try_scsi_command(T command_descriptor_block)
+    ErrorOr<OwnPtr<CommandStatusWrapper>> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, u16 buf_size, void * buf)
     {
-        auto cbw = CommandBlockWrapper();
-	memcpy(cbw.CBWCB, &command_descriptor_block, sizeof(T));
+        if (buf_size < data_len)
+            return Error::from_errno(ENOMEM);
+
+        CommandBlockWrapper cbw {
+	    .dCBWTag = 0,
+	    .dCBWDataTransferLength = cdb.len,
+	    .bmCBWFlags = static_cast<u8>((dir == Pipe::Direction::In ? 0x80 : 0)),
+	    .bCBWLUN = lun,
+            .bCBWCBLength = sizeof(T),
+	    .CBWCB = {0}
+	};
+
+	memcpy(cbw.CBWCB, &cdb, sizeof(T));
 	auto transfer_size = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
-	dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
-        
-	u8 buf[13] = {0};
-	transfer_size = m_bulk_in->bulk_transfer(13, buf);
-	dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
-        for (int i = 0; i < 13; i++)
-            dbgln("Byte {}: {}", i, buf[i]);
+	if (dir == Pipe::Direction::In) {
+            transfer_size = m_bulk_in->bulk_transfer(data_len, buf);
+            dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
+	} else if (dir == Pipe::Direction::Out) {
+            transfer_size = m_bulk_out->bulk_transfer(data_len, buf);
+            dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
+	}
+
         auto csw = TRY(adopt_nonnull_own_or_enomem(new CommandStatusWrapper()));
         return csw;
     }
