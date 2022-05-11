@@ -77,7 +77,7 @@ public:
     ErrorOr<u8> get_max_lun();
 
     template<class T>
-    ErrorOr<OwnPtr<CommandStatusWrapper>> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, u16 buf_size, void * buf)
+    ErrorOr<size_t> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, u16 buf_size, void * buf)
     {
         if (buf_size < data_len)
             return Error::from_errno(ENOMEM);
@@ -101,8 +101,10 @@ public:
             dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
 	}
 
-        auto csw = TRY(adopt_nonnull_own_or_enomem(new CommandStatusWrapper()));
-        return csw;
+        CommandStatusWrapper csw;
+	transfer_size = m_bulk_in->bulk_transfer(sizeof(CommandStatusWrapper), &csw);
+
+	return transfer_size;
     }
 
 private:

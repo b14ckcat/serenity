@@ -194,4 +194,21 @@ struct [[gnu::packed]] CommandDescriptorBlock16 {
 };
 static_assert(sizeof(CommandDescriptorBlock16) == 16);
 
+constexpr CommandDescriptorBlock6 CDB_INQUIRY = {
+    .opcode = SCSI_INQUIRY,
+    .misc = 0x00,
+    .logical_block_addr = 0x00,
+    .len = 36,
+    .control = 0x00
+};
+
+constexpr CommandDescriptorBlock10 CDB_READ_CAPACITY = {
+    .opcode = SCSI_READ_CAPACITY_10,
+    .misc_and_service = 0x00,
+    .logical_block_addr = 0x00,
+    .misc_continued = 0x00,
+    .len = 8,
+    .control = 0x00
+};
+
 }
