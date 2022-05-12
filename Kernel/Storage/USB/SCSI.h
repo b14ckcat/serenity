@@ -8,6 +8,9 @@
 
 namespace Kernel {
 
+constexpr u8 SCSI_INQUIRY_DATA_LEN = 36; // Unwritten standard for INQUIRY data len
+constexpr u8 SCSI_READ_CAPACITY_DATA_LEN = 8; // Similarly for READ CAPACITY
+
 enum SCSI_COMMANDS {
     SCSI_TEST_UNIT_READY = 0x00,
     SCSI_REWIND,
@@ -155,6 +158,7 @@ enum SCSI_COMMANDS {
     SCSI_VOLUME_SET_OUT
 };
 
+
 struct [[gnu::packed]] CommandDescriptorBlock6 {
     u8 opcode;
     u8 misc; // Only 3 highest bits are used
@@ -198,7 +202,7 @@ constexpr CommandDescriptorBlock6 CDB_INQUIRY = {
     .opcode = SCSI_INQUIRY,
     .misc = 0x00,
     .logical_block_addr = 0x00,
-    .len = 36,
+    .len = SCSI_INQUIRY_DATA_LEN,
     .control = 0x00
 };
 
@@ -207,7 +211,7 @@ constexpr CommandDescriptorBlock10 CDB_READ_CAPACITY = {
     .misc_and_service = 0x00,
     .logical_block_addr = 0x00,
     .misc_continued = 0x00,
-    .len = 8,
+    .len = SCSI_READ_CAPACITY_DATA_LEN,
     .control = 0x00
 };
 

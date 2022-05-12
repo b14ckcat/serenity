@@ -536,7 +536,6 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
         }
 
         transfer_size += descriptor->actual_packet_length();
-	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
         descriptor = descriptor->next_td();
     }
 
