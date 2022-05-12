@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/FixedArray.h>
 #include <AK/OwnPtr.h>
 #include <Kernel/KString.h>
 #include <Kernel/Bus/USB/USBMassStorageClass.h>
@@ -28,8 +29,10 @@ public:
 private:
     USBMassStorageDevice(OwnPtr<USB::MassStorageHandle>, MinorNumber, size_t, u64, NonnullOwnPtr<KString>);
 
+    ErrorOr<void> get_metadata(u8 lun);
+
+    u8 m_max_lun;
     OwnPtr<USB::MassStorageHandle> m_usb_msc_handle;
-    RefPtr<Thread> m_polling_thread;
 };
 
 }

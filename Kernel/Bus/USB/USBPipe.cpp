@@ -85,7 +85,7 @@ ErrorOr<size_t> Pipe::bulk_transfer(u16 length, void* data)
     } 
     
     else if (m_direction == Direction::Out) {
-        transfer->set_data(length, data);
+        TRY(transfer->write_buffer(length, data));
         dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer allocated @ {}", transfer->buffer_physical());
         transfer_length = TRY(m_controller->submit_bulk_transfer(*transfer));
         dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer complete!");

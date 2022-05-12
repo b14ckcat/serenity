@@ -463,7 +463,6 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     size_t transfer_size = 0;
     while (!transfer.complete()) {
         transfer_size = poll_transfer_queue(*transfer_queue);
-	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
     }
 
     free_descriptor_chain(transfer_queue->get_first_td());
@@ -501,7 +500,6 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
         }
 
         transfer_size += descriptor->actual_packet_length();
-	dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
         descriptor = descriptor->next_td();
     }
 
