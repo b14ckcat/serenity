@@ -72,7 +72,14 @@ static_assert(sizeof(CommandStatusWrapper) == 13);
 
 class MassStorageHandle {
 public:
-    MassStorageHandle(Device const& usb_device, USBInterface const& usb_interface, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out);
+    MassStorageHandle(Device const& usb_device, USBInterface const& usb_interface, OwnPtr<Pipe> bulk_in, OwnPtr<Pipe> bulk_out)
+    : m_usb_device(usb_device)
+    , m_usb_interface(usb_interface)
+    , m_bulk_in(move(bulk_in))
+    , m_bulk_out(move(bulk_out))
+    , m_tag(0)
+    {
+    }
 
     ErrorOr<u8> get_max_lun();
 
@@ -83,7 +90,7 @@ public:
             return Error::from_errno(ENOMEM);
 
         CommandBlockWrapper cbw {
-	    .dCBWTag = 0,
+	    .dCBWTag = m_tag++,
 	    .dCBWDataTransferLength = cdb.len,
 	    .bmCBWFlags = static_cast<u8>((dir == Pipe::Direction::In ? 0x80 : 0)),
 	    .bCBWLUN = lun,
@@ -112,6 +119,7 @@ private:
     USBInterface const& m_usb_interface;
     OwnPtr<Pipe> m_bulk_in;
     OwnPtr<Pipe> m_bulk_out;
+    u32 m_tag;
 };
 
 }

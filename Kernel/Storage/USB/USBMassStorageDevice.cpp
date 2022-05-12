@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <AK/Try.h>
+#include <AK/Endian.h>
 #include <AK/StringView.h>
+#include <AK/Try.h>
 #include <Kernel/Bus/USB/USBController.h>
 #include <Kernel/Bus/USB/USBDevice.h>
 #include <Kernel/Bus/USB/USBPipe.h>
@@ -23,16 +24,8 @@ ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr
     auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
 
     auto max_lun = TRY(usb_msc_handle->get_max_lun());
+    dbgln("{}", max_lun);
     for (int i = 0; i <= max_lun; i++) {
-        constexpr u8 inquiry_size = 36; // Unwritten standard for inquiry data size
-        u8 buf[inquiry_size + 1] = {'\0'};
-        TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(CDB_INQUIRY, 0, USB::Pipe::Direction::In, inquiry_size, inquiry_size+1, buf));
-        dbgln("Data in: {}", buf);
-
-        memset(buf, '\0', inquiry_size+1);
-	constexpr u8 read_cap_size = 8;
-        TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(CDB_READ_CAPACITY, 0, USB::Pipe::Direction::In, read_cap_size, inquiry_size+1, buf));
-        dbgln("Data in: {}", buf);
     }
 
     auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, 512, 1, move(device_name));
@@ -59,6 +52,22 @@ void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
     {
         return;
     }
+}
+
+ErrorOr<void> USBMassStorageDevice::get_metadata(u8 lun)
+{
+    if (lun) {}
+
+    u8 buf[SCSI_INQUIRY_DATA_LEN+1] = {'\0'};
+    TRY(m_usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(CDB_INQUIRY, 0, USB::Pipe::Direction::In, SCSI_INQUIRY_DATA_LEN, SCSI_INQUIRY_DATA_LEN+1, buf));
+    dbgln("Data in: {}", buf);
+
+    memset(buf, 0, SCSI_INQUIRY_DATA_LEN+1);
+    TRY(m_usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(CDB_READ_CAPACITY, 0, USB::Pipe::Direction::In, SCSI_READ_CAPACITY_DATA_LEN, SCSI_INQUIRY_DATA_LEN+1, buf));
+    for (int i = 0; i < 8; i++)
+        dbgln("{}\n", buf[i]);
+
+    return {};
 }
 
 }
