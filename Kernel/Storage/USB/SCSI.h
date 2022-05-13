@@ -8,8 +8,9 @@
 
 namespace Kernel {
 
-constexpr u8 SCSI_INQUIRY_DATA_LEN = 36; // Unwritten standard for INQUIRY data len
-constexpr u8 SCSI_READ_CAPACITY_DATA_LEN = 8; // Similarly for READ CAPACITY
+/* Important! This is not a complete SCSI layer, it is a minimal implementation of the
+   subset of SCSI needed to communicate with a MSC bulk-only drive. There are many
+   assumptions made here that will not necessarily hold for other SCSI devices. */
 
 enum SCSI_COMMANDS {
     SCSI_TEST_UNIT_READY = 0x00,
@@ -198,11 +199,26 @@ struct [[gnu::packed]] CommandDescriptorBlock16 {
 };
 static_assert(sizeof(CommandDescriptorBlock16) == 16);
 
+struct [[gnu::packed]] InquiryResponse {
+    u8 dev_type;
+    u8 misc_data[7]; // Assorted flags & info not used here
+    unsigned char vendor_id[8];
+    unsigned char product_id[16];
+    unsigned char revision_level[4];
+};
+static_assert(sizeof(InquiryResponse) == 36);
+
+struct [[gnu::packed]] ReadCapacityResponse {
+    u32 num_sectors;
+    u32 sector_size;
+};
+static_assert(sizeof(ReadCapacityResponse) == 8);
+
 constexpr CommandDescriptorBlock6 CDB_INQUIRY = {
     .opcode = SCSI_INQUIRY,
     .misc = 0x00,
     .logical_block_addr = 0x00,
-    .len = SCSI_INQUIRY_DATA_LEN,
+    .len = sizeof(InquiryResponse),
     .control = 0x00
 };
 
@@ -211,7 +227,7 @@ constexpr CommandDescriptorBlock10 CDB_READ_CAPACITY = {
     .misc_and_service = 0x00,
     .logical_block_addr = 0x00,
     .misc_continued = 0x00,
-    .len = SCSI_READ_CAPACITY_DATA_LEN,
+    .len = sizeof(ReadCapacityResponse),
     .control = 0x00
 };
 

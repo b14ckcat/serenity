@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <AK/BitCast.h>
 #include <AK/Endian.h>
 #include <AK/StringView.h>
 #include <AK/Try.h>
@@ -23,18 +24,15 @@ ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr
     auto minor_number = StorageManagement::generate_storage_minor_number();
     auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
 
-    auto max_lun = TRY(usb_msc_handle->get_max_lun());
-    dbgln("{}", max_lun);
-    for (int i = 0; i <= max_lun; i++) {
-    }
+    auto scsi_metadata = get_metadata(usb_msc_handle);
 
     auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, 512, 1, move(device_name));
     VERIFY(!device_or_error.is_error());
     return device_or_error.release_value();
 }
 
-USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, size_t sector_size, u64 disk_size, NonnullOwnPtr<KString> device_name)
-    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, sector_size, sector_size / disk_size, move(device_name))
+USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, u32 sector_size, u32 num_sectors, NonnullOwnPtr<KString> device_name)
+    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, sector_size, num_sectors, move(device_name))
     , m_usb_msc_handle(move(usb_msc_handle))
 {
 }
@@ -54,20 +52,28 @@ void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
     }
 }
 
-ErrorOr<void> USBMassStorageDevice::get_metadata(u8 lun)
+ErrorOr<OwnPtr<SCSIMetadata>> USBMassStorageDevice::get_metadata(OwnPtr<USB::MassStorageHandle> &usb_msc_handle)
 {
-    if (lun) {}
+    auto metadata = TRY(adopt_nonnull_own_or_enomem(new SCSIMetadata()));
 
-    u8 buf[SCSI_INQUIRY_DATA_LEN+1] = {'\0'};
-    TRY(m_usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(CDB_INQUIRY, 0, USB::Pipe::Direction::In, SCSI_INQUIRY_DATA_LEN, SCSI_INQUIRY_DATA_LEN+1, buf));
-    dbgln("Data in: {}", buf);
+    // Get number of logical units on device, only LUN 0 supported currently
+    metadata->max_lun = TRY(usb_msc_handle->get_max_lun());
+    if (metadata->max_lun != 0)
+        dbgln("Multi-LUN USB MSC device detected. Only LUN 0 is currently supported.");
 
-    memset(buf, 0, SCSI_INQUIRY_DATA_LEN+1);
-    TRY(m_usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(CDB_READ_CAPACITY, 0, USB::Pipe::Direction::In, SCSI_READ_CAPACITY_DATA_LEN, SCSI_INQUIRY_DATA_LEN+1, buf));
-    for (int i = 0; i < 8; i++)
-        dbgln("{}\n", buf[i]);
+    // Retrieve the name/label of the logical unit
+    InquiryResponse inq_res;
+    TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock6>(CDB_INQUIRY, 0, USB::Pipe::Direction::In, sizeof(InquiryResponse), &inq_res));
+    memcpy(metadata->vendor_id, inq_res.vendor_id, 8);
+    memcpy(metadata->product_id, inq_res.product_id, 16);
 
-    return {};
+    // Read capacity = get sector size & number of sectors on logical unit
+    ReadCapacityResponse cap_res;
+    TRY(usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(CDB_READ_CAPACITY, 0, USB::Pipe::Direction::In, sizeof(ReadCapacityResponse), &cap_res));
+    metadata->sector_size = AK::convert_between_host_and_big_endian(cap_res.sector_size);
+    metadata->num_sectors = AK::convert_between_host_and_big_endian(cap_res.num_sectors);
+
+    return metadata;
 }
 
 }
