@@ -214,6 +214,14 @@ struct [[gnu::packed]] ReadCapacityResponse {
 };
 static_assert(sizeof(ReadCapacityResponse) == 8);
 
+constexpr CommandDescriptorBlock6 CDB_TEST_UNIT_READY = {
+    .opcode = SCSI_TEST_UNIT_READY,
+    .misc = 0x00,
+    .logical_block_addr = 0x00,
+    .len = 0,
+    .control = 0x00
+};
+
 constexpr CommandDescriptorBlock6 CDB_INQUIRY = {
     .opcode = SCSI_INQUIRY,
     .misc = 0x00,
@@ -228,6 +236,18 @@ constexpr CommandDescriptorBlock10 CDB_READ_CAPACITY = {
     .logical_block_addr = 0x00,
     .misc_continued = 0x00,
     .len = sizeof(ReadCapacityResponse),
+    .control = 0x00
+};
+
+constexpr u8 MODE_SENSE_PAGE_LEN = 192;
+constexpr u8 MODE_SENSE_PAGE_ADDR = 0x3F;
+
+// Used to retrieve a page that specifies whether or not the device is read-only
+constexpr CommandDescriptorBlock6 CDB_MODE_SENSE = {
+    .opcode = SCSI_MODE_SENSE_6,
+    .misc = 0x00,
+    .logical_block_addr = MODE_SENSE_PAGE_ADDR,
+    .len = MODE_SENSE_PAGE_LEN,
     .control = 0x00
 };
 
