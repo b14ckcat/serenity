@@ -84,11 +84,8 @@ public:
     ErrorOr<u8> get_max_lun();
 
     template<class T>
-    ErrorOr<size_t> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, u16 buf_size, void * buf)
+    ErrorOr<size_t> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, void * buf)
     {
-        if (buf_size < data_len)
-            return Error::from_errno(ENOMEM);
-
         CommandBlockWrapper cbw {
 	    .dCBWTag = m_tag++,
 	    .dCBWDataTransferLength = cdb.len,

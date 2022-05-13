@@ -14,6 +14,15 @@
 
 namespace Kernel {
 
+struct SCSIMetadata {
+    const u8 lun = 0; // Important! Multiple LUNs are not currently supported
+    u8 max_lun;
+    unsigned char vendor_id[8];
+    unsigned char product_id[16];
+    u32 sector_size;
+    u32 num_sectors;
+};
+
 class USBMassStorageDevice final : public StorageDevice {
     friend class DeviceManagement;
 
@@ -27,11 +36,10 @@ public:
     virtual StringView class_name() const override;
 
 private:
-    USBMassStorageDevice(OwnPtr<USB::MassStorageHandle>, MinorNumber, size_t, u64, NonnullOwnPtr<KString>);
+    USBMassStorageDevice(OwnPtr<USB::MassStorageHandle>, MinorNumber, u32, u32, NonnullOwnPtr<KString>);
 
-    ErrorOr<void> get_metadata(u8 lun);
+    static ErrorOr<OwnPtr<SCSIMetadata>> get_metadata(OwnPtr<USB::MassStorageHandle> &usb_msc_handle);
 
-    u8 m_max_lun;
     OwnPtr<USB::MassStorageHandle> m_usb_msc_handle;
 };
 
