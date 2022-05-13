@@ -13,14 +13,14 @@
 namespace Kernel::USB {
 
 ErrorOr<u8> MassStorageHandle::get_max_lun() {
-    u8 buf[1];
-    auto transfer_length = TRY(const_cast<Device&>(m_usb_device).control_transfer(0xA1, USB_MSC_REQUEST_BULK_ONLY_GET_MAX_LUN, 0, m_usb_interface.get_id(), 1, buf));
+    u8 max_lun;
+    auto transfer_length = TRY(const_cast<Device&>(m_usb_device).control_transfer(0xA1, USB_MSC_REQUEST_BULK_ONLY_GET_MAX_LUN, 0, m_usb_interface.get_id(), 1, &max_lun));
     if (!transfer_length)
         return EPROTO;
-    dbgln_if(USB_DEBUG, "Max LUN: {}", buf[0]);
+    dbgln_if(USB_DEBUG, "Max LUN: {}", max_lun);
     dbgln_if(USB_DEBUG, "Get max LUN control transfer length: {}", transfer_length);
 
-    return buf[0];
+    return max_lun;
 }
 
 }
