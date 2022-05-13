@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/Error.h>
 #include <AK/Types.h>
 #include <AK/Memory.h>
 #include <Kernel/Bus/USB/USBDevice.h>
@@ -48,8 +49,14 @@ static constexpr u8 USB_MSC_PIPE_USAGE_CLASS_SPECIFIC_DESCRIPTOR = 0x24;
 static constexpr u16 USB_MSC_QEMU_VID = 0x46F4;
 static constexpr u16 USB_MSC_QEMU_PID = 0x0001;
 
-static constexpr u64 USB_MSC_CBW_MAGIC_NUMBER = 0x43425355;
-static constexpr u64 USB_MSC_CSW_MAGIC_NUMBER = 0x53425355;
+static constexpr u32 USB_MSC_CBW_MAGIC_NUMBER = 0x43425355;
+static constexpr u32 USB_MSC_CSW_MAGIC_NUMBER = 0x53425355;
+
+enum CSWStatus : u8 {
+    PASSED = 0x00,
+    FAILED,
+    PHASE_ERROR,
+};
 
 struct [[gnu::packed]] CommandBlockWrapper {
     u32 const dCBWSignature { USB_MSC_CBW_MAGIC_NUMBER };
@@ -66,7 +73,7 @@ struct [[gnu::packed]] CommandStatusWrapper {
     u32 const dCBWSignature { USB_MSC_CBW_MAGIC_NUMBER };
     u32 dCSWTag; // Tag that allows CSW to be matched with its CBW
     u32 dCSWDataResidue; // Indicates the difference between the amount of data expected (in bytes?) and the amount received
-    u8 bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
+    CSWStatus bCSWStatus; // Indicates success/failure of command, 0 = success, 1 = failure, 2 = "phase error"
 };
 static_assert(sizeof(CommandStatusWrapper) == 13);
 
@@ -84,7 +91,7 @@ public:
     ErrorOr<u8> get_max_lun();
 
     template<class T>
-    ErrorOr<size_t> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, void * buf)
+    ErrorOr<CSWStatus> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, void *buf)
     {
         CommandBlockWrapper cbw {
 	    .dCBWTag = m_tag++,
@@ -97,18 +104,21 @@ public:
 
 	memcpy(cbw.CBWCB, &cdb, sizeof(T));
 	auto transfer_size = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
-	if (dir == Pipe::Direction::In) {
-            transfer_size = m_bulk_in->bulk_transfer(data_len, buf);
-            dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
-	} else if (dir == Pipe::Direction::Out) {
-            transfer_size = m_bulk_out->bulk_transfer(data_len, buf);
-            dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
+
+	if (data_len > 0) {
+	    if (dir == Pipe::Direction::In) {
+                transfer_size = m_bulk_in->bulk_transfer(data_len, buf);
+                dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
+	    } else if (dir == Pipe::Direction::Out) {
+                transfer_size = m_bulk_out->bulk_transfer(data_len, buf);
+                dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
+	    }
 	}
 
         CommandStatusWrapper csw;
 	transfer_size = m_bulk_in->bulk_transfer(sizeof(CommandStatusWrapper), &csw);
 
-	return transfer_size;
+	return csw.bCSWStatus;
     }
 
 private:
