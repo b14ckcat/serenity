@@ -26,17 +26,27 @@ ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr
     auto minor_number = StorageManagement::generate_storage_minor_number();
     auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
 
-    auto scsi_metadata = get_metadata(usb_msc_handle);
+    auto metadata = TRY(get_metadata(usb_msc_handle));
 
-    auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, 512, 1, move(device_name));
+    auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, move(metadata), move(device_name));
     VERIFY(!device_or_error.is_error());
     return device_or_error.release_value();
 }
 
-USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, u32 sector_size, u32 num_sectors, NonnullOwnPtr<KString> device_name)
-    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, sector_size, num_sectors, move(device_name))
+USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, OwnPtr<SCSIMetadata> metadata, NonnullOwnPtr<KString> device_name)
+    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, metadata->sector_size, metadata->num_sectors, move(device_name))
+    , m_metadata(move(metadata))
     , m_usb_msc_handle(move(usb_msc_handle))
 {
+    u8 buf[1024] = {'\0'};
+    u8 print[17] = {'\0'};
+    for (int j = 0; j < 64; j++) {
+        dbgln("{}", read(1024*j, 1024, buf).is_error());
+        for (int i = 0; i < 64; i++) {
+            memcpy(print, buf+(i*16), 16);
+            dbgln("{}", print);
+        }
+    }
 }
 
 USBMassStorageDevice::~USBMassStorageDevice() = default;
@@ -51,12 +61,12 @@ void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
     if (!request.block_count())
     {
         return;
-    }
+    } 
 }
 
-ErrorOr<OwnPtr<DriveMetadata>> USBMassStorageDevice::get_metadata(OwnPtr<USB::MassStorageHandle> &usb_msc_handle)
+ErrorOr<OwnPtr<SCSIMetadata>> USBMassStorageDevice::get_metadata(OwnPtr<USB::MassStorageHandle> &usb_msc_handle)
 {
-    auto metadata = TRY(adopt_nonnull_own_or_enomem(new DriveMetadata()));
+    auto metadata = TRY(adopt_nonnull_own_or_enomem(new SCSIMetadata()));
     CSWStatus res;
 
     // Check if device is ready to recieve SCSI commands
@@ -87,6 +97,38 @@ ErrorOr<OwnPtr<DriveMetadata>> USBMassStorageDevice::get_metadata(OwnPtr<USB::Ma
     metadata->read_only = page[1] & (1 << 6);
 
     return metadata;
+}
+
+ErrorOr<void> USBMassStorageDevice::read(u32 lba, u16 len, void * buf)
+{
+    CommandDescriptorBlock10 cdb_read = {
+        .opcode = SCSI_READ_10,
+        .misc_and_service = 0x00,
+        .logical_block_addr = lba,
+        .misc_continued = 0x00,
+        .len = len,
+        .control = 0x00
+    };
+
+    TRY(m_usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(cdb_read, 0, Pipe::Direction::In, len, buf));
+
+    return {};
+}
+
+ErrorOr<void> USBMassStorageDevice::write(u32 lba, u16 len, void * buf)
+{
+    CommandDescriptorBlock10 cdb_write = {
+        .opcode = SCSI_WRITE_10,
+        .misc_and_service = 0x00,
+        .logical_block_addr = lba,
+        .misc_continued = 0x00,
+        .len = len,
+        .control = 0x00
+    };
+
+    TRY(m_usb_msc_handle->try_scsi_command<CommandDescriptorBlock10>(cdb_write, 0, Pipe::Direction::Out, len, buf));
+
+    return {};
 }
 
 }
