@@ -209,8 +209,8 @@ struct [[gnu::packed]] InquiryResponse {
 static_assert(sizeof(InquiryResponse) == 36);
 
 struct [[gnu::packed]] ReadCapacityResponse {
-    u32 num_sectors;
-    u32 sector_size;
+    u32 num_blocks;
+    u32 block_size;
 };
 static_assert(sizeof(ReadCapacityResponse) == 8);
 
