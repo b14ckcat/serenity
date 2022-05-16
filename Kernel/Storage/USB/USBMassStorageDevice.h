@@ -44,6 +44,7 @@ private:
     ErrorOr<void> read(u32 lba, void * buf);
     ErrorOr<void> write(u32 lba, void * buf);
 
+    Mutex m_lock {"USB MSC device"};
     OwnPtr<SCSIMetadata> m_metadata;
     OwnPtr<USB::MassStorageHandle> m_usb_msc_handle;
 };
