@@ -5,6 +5,7 @@
  */
 
 #include <AK/Endian.h>
+#include <AK/FixedArray.h>
 #include <AK/StringView.h>
 #include <AK/Try.h>
 #include <Kernel/Bus/USB/USBController.h>
@@ -38,15 +39,15 @@ USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_ms
     , m_metadata(move(metadata))
     , m_usb_msc_handle(move(usb_msc_handle))
 {
+/*
     u8 buf[512] = {'\0'};
-    u8 print[17] = {'\0'};
-    for (int j = 0; j < 64; j++) {
-        dbgln("{}", read(0, buf).is_error());
-        for (int i = 0; i < 64; i++) {
-            memcpy(print, buf+(i*16), 16);
-            dbgln("{}", print);
-        }
+    u8 print[65] = {'\0'};
+    dbgln("{}", read(0, buf).is_error());
+    for (int j = 0; j < 16; j++) {
+        memcpy(print, buf+j*64, 64);
+	dbgln("{}", print);
     }
+*/
 }
 
 USBMassStorageDevice::~USBMassStorageDevice() = default;
@@ -58,10 +59,46 @@ StringView USBMassStorageDevice::class_name() const
 
 void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
 {
-    if (!request.block_count())
-    {
+    MutexLocker locker(m_lock);
+
+    if (request.block_index() + request.block_count() > m_metadata->num_blocks) {
+        request.complete(AsyncDeviceRequest::Failure);
         return;
-    } 
+    }
+
+    auto res = FixedArray<u8>::try_create(m_metadata->block_size);
+    if (res.is_error()) {
+        request.complete(AsyncDeviceRequest::Failure);
+        return;
+    }
+
+    auto buf = res.release_value();
+
+    if (request.request_type() == AsyncBlockDeviceRequest::Read) {
+        for (u32 i = 0; i < request.block_count(); i++) {
+            if (read(request.block_count()+i, buf.data()).is_error()) {
+                request.complete(AsyncDeviceRequest::Failure);
+                return;
+            }
+            if (request.buffer().write(buf.data(), buf.size()*i, buf.size()).is_error()) {
+                request.complete(AsyncDeviceRequest::Failure);
+                return;
+            }
+	}
+    } else if (request.request_type() == AsyncBlockDeviceRequest::Write) {
+        for (u32 i = 0; i < request.block_count(); i++) {
+            if (request.buffer().read(buf.data(), buf.size()*i, buf.size()).is_error()) {
+                request.complete(AsyncDeviceRequest::Failure);
+		return;
+            }
+            if (write(request.block_count()+i, buf.data()).is_error()) {
+                request.complete(AsyncDeviceRequest::Failure);
+                return;
+            }
+        }
+    }
+
+    request.complete(AsyncDeviceRequest::Success);
 }
 
 ErrorOr<OwnPtr<SCSIMetadata>> USBMassStorageDevice::get_metadata(OwnPtr<USB::MassStorageHandle> &usb_msc_handle)
