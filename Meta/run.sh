@@ -494,7 +494,7 @@ else
         $SERENITY_KERNEL_AND_INITRD \
         -append "${SERENITY_KERNEL_CMDLINE}" \
 	-monitor unix:/home/user1/sock,server,nowait \
-	-drive if=none,file=/home/user1/repos/serenity/disk2.img,format=raw,id=disk1 \
+	-drive if=none,file=/home/user1/repos/serenity/disk4.img,format=raw,id=disk1 \
 	-usb -device usb-storage,drive=disk1 \
 	#-device usb-mouse
 fi
