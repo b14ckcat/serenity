@@ -117,6 +117,7 @@ public:
 
         CommandStatusWrapper csw;
 	transfer_size = m_bulk_in->bulk_transfer(sizeof(CommandStatusWrapper), &csw);
+	dbgln_if(USB_DEBUG, "USB transfer size: {}", transfer_size);
 
 	return csw.bCSWStatus;
     }

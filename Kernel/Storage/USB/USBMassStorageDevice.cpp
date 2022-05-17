@@ -20,6 +20,7 @@
 
 namespace Kernel {
 
+using namespace AK;
 using namespace USB;
 
 ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr<USB::MassStorageHandle> usb_msc_handle)
@@ -39,15 +40,6 @@ USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_ms
     , m_metadata(move(metadata))
     , m_usb_msc_handle(move(usb_msc_handle))
 {
-/*
-    u8 buf[512] = {'\0'};
-    u8 print[65] = {'\0'};
-    dbgln("{}", read(0, buf).is_error());
-    for (int j = 0; j < 16; j++) {
-        memcpy(print, buf+j*64, 64);
-	dbgln("{}", print);
-    }
-*/
 }
 
 USBMassStorageDevice::~USBMassStorageDevice() = default;
@@ -60,6 +52,8 @@ StringView USBMassStorageDevice::class_name() const
 void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
 {
     MutexLocker locker(m_lock);
+    dbgln("Count: {}",request.block_count());
+    dbgln("Index: {}",request.block_index());
 
     if (request.block_index() + request.block_count() > m_metadata->num_blocks) {
         request.complete(AsyncDeviceRequest::Failure);
@@ -76,7 +70,7 @@ void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
 
     if (request.request_type() == AsyncBlockDeviceRequest::Read) {
         for (u32 i = 0; i < request.block_count(); i++) {
-            if (read(request.block_count()+i, buf.data()).is_error()) {
+            if (read(request.block_index()+i, buf.data()).is_error()) {
                 request.complete(AsyncDeviceRequest::Failure);
                 return;
             }
@@ -91,7 +85,7 @@ void USBMassStorageDevice::start_request(AsyncBlockDeviceRequest& request)
                 request.complete(AsyncDeviceRequest::Failure);
 		return;
             }
-            if (write(request.block_count()+i, buf.data()).is_error()) {
+            if (write(request.block_index()+i, buf.data()).is_error()) {
                 request.complete(AsyncDeviceRequest::Failure);
                 return;
             }
@@ -141,7 +135,7 @@ ErrorOr<void> USBMassStorageDevice::read(u32 lba, void * buf)
     CommandDescriptorBlock10 cdb_read = {
         .opcode = SCSI_READ_10,
         .misc_and_service = 0x00,
-        .logical_block_addr = lba,
+        .logical_block_addr = convert_between_host_and_big_endian(lba),
         .misc_continued = 0x00,
         .len = m_metadata->block_size,
         .control = 0x00
@@ -157,7 +151,7 @@ ErrorOr<void> USBMassStorageDevice::write(u32 lba, void * buf)
     CommandDescriptorBlock10 cdb_write = {
         .opcode = SCSI_WRITE_10,
         .misc_and_service = 0x00,
-        .logical_block_addr = lba,
+        .logical_block_addr = convert_between_host_and_big_endian(lba),
         .misc_continued = 0x00,
         .len = m_metadata->block_size,
         .control = 0x00
