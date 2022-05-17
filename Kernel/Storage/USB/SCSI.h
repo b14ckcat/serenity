@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <AK/Endian.h>
+
 namespace Kernel {
 
 /* Important! This is not a complete SCSI layer, it is a minimal implementation of the
@@ -159,45 +161,112 @@ enum SCSI_COMMANDS {
     SCSI_VOLUME_SET_OUT
 };
 
+class SCSICommand {
+public:
+    SCSICommand(u8 size)
+    : m_size(size)
+    {
+    }
 
-struct [[gnu::packed]] CommandDescriptorBlock6 {
-    u8 opcode;
-    u8 misc; // Only 3 highest bits are used
-    u16 logical_block_addr;
-    u8 len; // Transfer, paramater list, or allocation length
-    u8 control;
-};
-static_assert(sizeof(CommandDescriptorBlock6) == 6);
+    virtual ~SCSICommand() = default;
 
-struct [[gnu::packed]] CommandDescriptorBlock10 {
-    u8 opcode;
-    u8 misc_and_service; // Highest 3 bits for misc, lower 5 for service action
-    u32 logical_block_addr;
-    u8 misc_continued; // More miscellaneous data
-    u16 len; // Transfer, paramater list, or allocation length
-    u8 control;
-};
-static_assert(sizeof(CommandDescriptorBlock10) == 10);
+    virtual void *data() = 0;
+    u8 cbd_size() { return m_size; }
 
-struct [[gnu::packed]] CommandDescriptorBlock12 {
-    u8 opcode;
-    u8 misc_and_service; // Highest 3 bits for misc, lower 5 for service action
-    u32 logical_block_addr;
-    u32 len; // Transfer, paramater list, or allocation length
-    u8 misc_continued; // More miscellaneous data
-    u8 control;
+protected:
+    u8 m_size;
 };
-static_assert(sizeof(CommandDescriptorBlock12) == 12);
 
-struct [[gnu::packed]] CommandDescriptorBlock16 {
-    u8 opcode;
-    u8 misc;
-    u64 logical_block_addr;
-    u32 len; // Transfer, paramater list, or allocation length
-    u8 misc_continued; // More miscellaneous data
-    u8 control;
+class SCSICommand6 final : public SCSICommand {
+public:
+    SCSICommand6(u8 opcode, u8 len=0, u16 lba=0) 
+    : SCSICommand(6)
+    , m_desc_block(opcode, 0, AK::convert_between_host_and_big_endian<u16>(lba), len, 0)
+    {
+    }
+
+    virtual void *data() override { return &m_desc_block; }
+    u8 data_len() { return m_desc_block.len; }
+
+private:
+    struct [[gnu::packed]] CommandDescriptorBlock6 {
+        u8 opcode;
+        u8 misc; // Only 3 highest bits are used
+        u16 logical_block_addr;
+        u8 len; // Transfer, paramater list, or allocation length
+        u8 control;
+    } m_desc_block;
+    static_assert(sizeof(CommandDescriptorBlock6) == 6);
 };
-static_assert(sizeof(CommandDescriptorBlock16) == 16);
+
+class SCSICommand10 final : public SCSICommand {
+public:
+    SCSICommand10(u8 opcode, u16 len=0, u32 lba=0) 
+    : SCSICommand(10)
+    , m_desc_block(opcode, 0, AK::convert_between_host_and_big_endian<u32>(lba), 0, len, 0)
+    {
+    }
+
+    virtual void *data() override { return &m_desc_block; }
+    u16 data_len() { return m_desc_block.len; }
+
+private:
+    struct [[gnu::packed]] CommandDescriptorBlock10 {
+        u8 opcode;
+        u8 misc_and_service; // Highest 3 bits for misc, lower 5 for service action
+        u32 logical_block_addr;
+        u8 misc_continued; // More miscellaneous data
+        u16 len; // Transfer, paramater list, or allocation length
+        u8 control;
+    } m_desc_block;
+    static_assert(sizeof(CommandDescriptorBlock10) == 10);
+};
+
+class SCSICommand12 final : public SCSICommand {
+public:
+    SCSICommand12(u8 opcode, u32 len=0, u32 lba=0) 
+    : SCSICommand(12)
+    , m_desc_block(opcode, 0, AK::convert_between_host_and_big_endian<u32>(lba), len, 0, 0)
+    {
+    }
+
+    virtual void *data() override { return &m_desc_block; }
+    u32 data_len() { return m_desc_block.len; }
+
+private:
+    struct [[gnu::packed]] CommandDescriptorBlock12 {
+        u8 opcode;
+        u8 misc_and_service; // Highest 3 bits for misc, lower 5 for service action
+        u32 logical_block_addr;
+        u32 len; // Transfer, paramater list, or allocation length
+        u8 misc_continued; // More miscellaneous data
+        u8 control;
+    } m_desc_block;
+    static_assert(sizeof(CommandDescriptorBlock12) == 12);
+};
+
+class SCSICommand16 final : public SCSICommand {
+public:
+    SCSICommand16(u8 opcode, u32 len=0, u64 lba=0) 
+    : SCSICommand(16)
+    , m_desc_block(opcode, 0, AK::convert_between_host_and_big_endian<u64>(lba), len, 0, 0)
+    {
+    }
+
+    virtual void *data() override { return &m_desc_block; }
+    u32 data_len() { return m_desc_block.len; }
+
+private:
+    struct [[gnu::packed]] CommandDescriptorBlock16 {
+        u8 opcode;
+        u8 misc;
+        u64 logical_block_addr;
+        u32 len; // Transfer, paramater list, or allocation length
+        u8 misc_continued; // More miscellaneous data
+        u8 control;
+    } m_desc_block;
+    static_assert(sizeof(CommandDescriptorBlock16) == 16);
+};
 
 struct [[gnu::packed]] InquiryResponse {
     u8 dev_type;
@@ -214,41 +283,5 @@ struct [[gnu::packed]] ReadCapacityResponse {
 };
 static_assert(sizeof(ReadCapacityResponse) == 8);
 
-constexpr CommandDescriptorBlock6 CDB_TEST_UNIT_READY = {
-    .opcode = SCSI_TEST_UNIT_READY,
-    .misc = 0x00,
-    .logical_block_addr = 0x00,
-    .len = 0,
-    .control = 0x00
-};
-
-constexpr CommandDescriptorBlock6 CDB_INQUIRY = {
-    .opcode = SCSI_INQUIRY,
-    .misc = 0x00,
-    .logical_block_addr = 0x00,
-    .len = sizeof(InquiryResponse),
-    .control = 0x00
-};
-
-constexpr CommandDescriptorBlock10 CDB_READ_CAPACITY = {
-    .opcode = SCSI_READ_CAPACITY_10,
-    .misc_and_service = 0x00,
-    .logical_block_addr = 0x00,
-    .misc_continued = 0x00,
-    .len = sizeof(ReadCapacityResponse),
-    .control = 0x00
-};
-
-constexpr u8 MODE_SENSE_PAGE_LEN = 192;
-constexpr u8 MODE_SENSE_PAGE_ADDR = 0x3F;
-
-// Used to retrieve a page that specifies whether or not the device is read-only
-constexpr CommandDescriptorBlock6 CDB_MODE_SENSE = {
-    .opcode = SCSI_MODE_SENSE_6,
-    .misc = 0x00,
-    .logical_block_addr = MODE_SENSE_PAGE_ADDR,
-    .len = MODE_SENSE_PAGE_LEN,
-    .control = 0x00
-};
 
 }

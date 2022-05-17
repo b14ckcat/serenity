@@ -91,26 +91,26 @@ public:
     ErrorOr<u8> get_max_lun();
 
     template<class T>
-    ErrorOr<CSWStatus> try_scsi_command(T const cdb, u8 lun, Pipe::Direction dir, u16 data_len, void *buf)
+    ErrorOr<CSWStatus> try_scsi_command(T scsi_command, u8 lun, Pipe::Direction dir, void *buf)
     {
         CommandBlockWrapper cbw {
 	    .dCBWTag = m_tag++,
-	    .dCBWDataTransferLength = cdb.len,
+	    .dCBWDataTransferLength = scsi_command.data_len(),
 	    .bmCBWFlags = static_cast<u8>((dir == Pipe::Direction::In ? 0x80 : 0)),
 	    .bCBWLUN = lun,
-            .bCBWCBLength = sizeof(T),
+            .bCBWCBLength = scsi_command.cbd_size(),
 	    .CBWCB = {0}
 	};
 
-	memcpy(cbw.CBWCB, &cdb, sizeof(T));
+	memcpy(cbw.CBWCB, scsi_command.data(), scsi_command.cbd_size());
 	auto transfer_size = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
 
-	if (data_len > 0) {
+	if (scsi_command.data_len() > 0) {
 	    if (dir == Pipe::Direction::In) {
-                transfer_size = m_bulk_in->bulk_transfer(data_len, buf);
+                transfer_size = m_bulk_in->bulk_transfer(scsi_command.data_len(), buf);
                 dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
 	    } else if (dir == Pipe::Direction::Out) {
-                transfer_size = m_bulk_out->bulk_transfer(data_len, buf);
+                transfer_size = m_bulk_out->bulk_transfer(scsi_command.data_len(), buf);
                 dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
 	    }
 	}
