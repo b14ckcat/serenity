@@ -91,8 +91,11 @@ public:
     ErrorOr<u8> get_max_lun();
 
     template<class T>
-    ErrorOr<CSWStatus> try_scsi_command(T scsi_command, u8 lun, Pipe::Direction dir, void *buf)
+    ErrorOr<void> try_scsi_command(T scsi_command, u8 lun, Pipe::Direction dir, void *buf)
     {
+	size_t transfer_size = 0;
+	u8 remaining_tries = 3;
+
         CommandBlockWrapper cbw {
 	    .dCBWTag = m_tag++,
 	    .dCBWDataTransferLength = scsi_command.data_len(),
@@ -103,23 +106,55 @@ public:
 	};
 
 	memcpy(cbw.CBWCB, scsi_command.data(), scsi_command.cbd_size());
-	auto transfer_size = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
+
+	while (remaining_tries-- > 0) {
+	    auto res = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
+	    if (!res.is_error())
+                break;
+	}
+	if (!remaining_tries)
+            return EPROTO;
 
 	if (scsi_command.data_len() > 0) {
 	    if (dir == Pipe::Direction::In) {
-                transfer_size = m_bulk_in->bulk_transfer(scsi_command.data_len(), buf);
+                remaining_tries = 3;
+	        while (remaining_tries-- > 0) {
+                    auto res = m_bulk_in->bulk_transfer(scsi_command.data_len(), buf);
+	            if (!res.is_error()) {
+                        transfer_size = res.release_value();
+                        break;
+		    }
+	        }
+	        if (!remaining_tries)
+                    return EPROTO;
                 dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
 	    } else if (dir == Pipe::Direction::Out) {
-                transfer_size = m_bulk_out->bulk_transfer(scsi_command.data_len(), buf);
+                remaining_tries = 3;
+	        while (remaining_tries-- > 0) {
+                    auto res = m_bulk_out->bulk_transfer(scsi_command.data_len(), buf);
+	            if (!res.is_error()) {
+                        transfer_size = res.release_value();
+                        break;
+                    }
+	        }
+	        if (!remaining_tries)
+                   return EPROTO;
                 dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
 	    }
 	}
 
         CommandStatusWrapper csw;
-	transfer_size = m_bulk_in->bulk_transfer(sizeof(CommandStatusWrapper), &csw);
-	dbgln_if(USB_DEBUG, "USB transfer size: {}", transfer_size);
+        remaining_tries = 3;
+	while (remaining_tries-- > 0) {
+            auto res = m_bulk_in->bulk_transfer(sizeof(CommandStatusWrapper), &csw);
+	    if (!res.is_error())
+                break;
+	}
+	if (!remaining_tries)
+            return EPROTO;
 
-	return csw.bCSWStatus;
+	dbgln_if(USB_DEBUG, "USB transfer size: {}", transfer_size);
+	return {};
     }
 
 private:

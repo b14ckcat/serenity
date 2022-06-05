@@ -103,12 +103,9 @@ ErrorOr<OwnPtr<SCSIMetadata>> USBMassStorageDevice::get_metadata(OwnPtr<USB::Mas
     SCSICommand6 mode_sense(SCSI_MODE_SENSE_6, MODE_SENSE_PAGE_LEN, MODE_SENSE_PAGE_ADDR); // Used to determine whether or not the device is read-only
 
     auto metadata = TRY(adopt_nonnull_own_or_enomem(new SCSIMetadata()));
-    CSWStatus res;
 
     // Check if device is ready to recieve SCSI commands
-    res = TRY(usb_msc_handle->try_scsi_command<SCSICommand6>(test_unit_ready, 0, Pipe::Direction::Out, nullptr));
-    if (res != CSWStatus::PASSED)
-        return EBUSY;
+    TRY(usb_msc_handle->try_scsi_command<SCSICommand6>(test_unit_ready, 0, Pipe::Direction::Out, nullptr));
 
     // Get number of logical units on device, only LUN 0 supported currently
     metadata->max_lun = TRY(usb_msc_handle->get_max_lun());

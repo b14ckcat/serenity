@@ -413,7 +413,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     QueueHead* transfer_queue = allocate_queue_head();
     if (!transfer_queue) {
         free_descriptor_chain(data_descriptor_chain);
-        return 0;
+        return ENOMEM;
     }
 
     transfer_queue->attach_transfer_descriptor_chain(setup_td);
@@ -463,7 +463,7 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     QueueHead* transfer_queue = allocate_queue_head();
     if (!transfer_queue) {
         free_descriptor_chain(data_descriptor_chain);
-        return 0;
+        return ENOMEM;
     }
 
     transfer_queue->attach_transfer_descriptor_chain(data_descriptor_chain);
@@ -501,7 +501,7 @@ ErrorOr<size_t> UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 
         if (status & TransferDescriptor::StatusBits::Active) {
             transfer_still_in_progress = true;
-            constexpr u16 delay_time = 500; // 0.5ms
+            constexpr u16 delay_time = 1000; // 1 ms
             IO::delay(delay_time);
             break;
         }
