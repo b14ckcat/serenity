@@ -17,6 +17,7 @@
 #include <Kernel/Bus/USB/UHCI/UHCIRootHub.h>
 #include <Kernel/Bus/USB/USBController.h>
 #include <Kernel/Interrupts/IRQHandler.h>
+#include <Kernel/Locking/Mutex.h>
 #include <Kernel/Memory/AnonymousVMObject.h>
 #include <Kernel/Process.h>
 #include <Kernel/Time/TimeManagement.h>
@@ -32,6 +33,8 @@ class UHCIController final
     static constexpr u8 MAXIMUM_NUMBER_OF_QHS = 64;
 
 public:
+    Mutex m_lock { "UHCIController" };
+
     static constexpr u8 NUMBER_OF_ROOT_PORTS = 2;
     static ErrorOr<NonnullRefPtr<UHCIController>> try_to_initialize(PCI::DeviceIdentifier const& pci_device_identifier);
     virtual ~UHCIController() override;
@@ -76,7 +79,7 @@ private:
 
     ErrorOr<void> create_structures();
     void setup_schedule();
-    size_t poll_transfer_queue(QueueHead& transfer_queue);
+    ErrorOr<size_t> poll_transfer_queue(QueueHead& transfer_queue);
 
     TransferDescriptor* create_transfer_descriptor(Pipe& pipe, PacketID direction, size_t data_len);
     ErrorOr<void> create_chain(Pipe& pipe, PacketID direction, Ptr32<u8>& buffer_address, size_t max_size, size_t transfer_size, TransferDescriptor** td_chain, TransferDescriptor** last_td);

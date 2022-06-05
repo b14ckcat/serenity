@@ -357,6 +357,8 @@ void UHCIController::free_descriptor_chain(TransferDescriptor* first_descriptor)
 
 ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
 {
+    MutexLocker locker(m_lock); 
+
     Pipe& pipe = transfer.pipe(); // Short circuit the pipe related to this transfer
     bool direction_in = (transfer.request().request_type & USB_REQUEST_TRANSFER_DIRECTION_DEVICE_TO_HOST) == USB_REQUEST_TRANSFER_DIRECTION_DEVICE_TO_HOST;
 
@@ -420,8 +422,17 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     m_fullspeed_control_qh->attach_transfer_queue(*transfer_queue);
 
     size_t transfer_size = 0;
-    while (!transfer.complete())
-        transfer_size = poll_transfer_queue(*transfer_queue);
+    while (!transfer.complete()) {
+        auto res = poll_transfer_queue(*transfer_queue);
+        if (res.is_error()) {
+            free_descriptor_chain(transfer_queue->get_first_td());
+            transfer_queue->free();
+            m_queue_head_pool->release_to_pool(transfer_queue);
+            return res;
+	} else {
+            transfer_size = res.release_value();
+	}
+    }
 
     free_descriptor_chain(transfer_queue->get_first_td());
     transfer_queue->free();
@@ -460,19 +471,25 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 
     m_bulk_qh->attach_transfer_queue(*transfer_queue);
 
-    size_t transfer_size = 0;
-    while (!transfer.complete()) {
+    ErrorOr<size_t> transfer_size = 0;
+    u8 remaining_attempts = 3;
+    while (!transfer.complete() && remaining_attempts-- > 0) {
         transfer_size = poll_transfer_queue(*transfer_queue);
+        if (transfer_size.is_error())
+             break;
     }
 
     free_descriptor_chain(transfer_queue->get_first_td());
     transfer_queue->free();
     m_queue_head_pool->release_to_pool(transfer_queue);
 
+    if (remaining_attempts <= 0)
+         return EPROTO;
+
     return transfer_size;
 }
 
-size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
+ErrorOr<size_t> UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 {
     Transfer* transfer = transfer_queue.transfer();
     TransferDescriptor* descriptor = transfer_queue.get_first_td();
@@ -482,21 +499,18 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
     while (descriptor) {
         u32 status = descriptor->status();
 
-        if (status & TransferDescriptor::StatusBits::NAKReceived) {
-            transfer_still_in_progress = false;
-            break;
-        }
-
         if (status & TransferDescriptor::StatusBits::Active) {
             transfer_still_in_progress = true;
+            constexpr u16 delay_time = 500; // 0.5ms
+            IO::delay(delay_time);
             break;
         }
 
-        if (status & TransferDescriptor::StatusBits::ErrorMask) {
+        else if (status & TransferDescriptor::StatusBits::ErrorMask) {
             transfer->set_complete();
             transfer->set_error_occurred();
             dbgln_if(UHCI_DEBUG, "UHCIController: Transfer failed! Reason: {:08x}", status);
-            return 0;
+            return EPROTO;
         }
 
         transfer_size += descriptor->actual_packet_length();
