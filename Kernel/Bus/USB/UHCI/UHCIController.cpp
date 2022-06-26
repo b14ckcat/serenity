@@ -518,21 +518,22 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
     while (descriptor) {
         u32 status = descriptor->status();
 
-        if (status & TransferDescriptor::StatusBits::NAKReceived) {
-            transfer_still_in_progress = false;
-            break;
-        }
-
-        if (status & TransferDescriptor::StatusBits::Active) {
-            transfer_still_in_progress = true;
-            break;
-        }
-
         if (status & TransferDescriptor::StatusBits::ErrorMask) {
             transfer->set_complete();
             transfer->set_error_occurred();
             dbgln_if(UHCI_DEBUG, "UHCIController: Transfer failed! Reason: {:08x}", status);
             return 0;
+        }
+
+        if (!(status & TransferDescriptor::StatusBits::ErrorCount)) {
+            transfer->set_complete();
+            transfer->set_error_occurred();
+            return 0;
+	}
+
+        if (status & TransferDescriptor::StatusBits::Active) {
+            transfer_still_in_progress = true;
+            break;
         }
 
         transfer_size += descriptor->actual_packet_length();
