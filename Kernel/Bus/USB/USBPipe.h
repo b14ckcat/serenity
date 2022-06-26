@@ -56,12 +56,12 @@ public:
     void set_toggle(bool toggle) { m_data_toggle = toggle; }
     void set_device_address(i8 addr) { m_device_address = addr; }
 
-    ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
-    ErrorOr<size_t> bulk_transfer(u16 length, void* data);
+    ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void *data);
+    ErrorOr<size_t> bulk_transfer(u16 length, void *data);
 
-    Pipe(USBController const& controller, Type type, Direction direction, u16 max_packet_size);
-    Pipe(USBController const& controller, Type type, Direction direction, USBEndpointDescriptor& endpoint);
-    Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, u8 poll_interval, i8 device_address);
+    Pipe(USBController const& controller, Type type, Direction direction, u16 max_packet_size, NonnullOwnPtr<Memory::Region> dma_buffer);
+    Pipe(USBController const& controller, Type type, Direction direction, USBEndpointDescriptor& endpoint, NonnullOwnPtr<Memory::Region> dma_buffer);
+    Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, u8 poll_interval, i8 device_address, NonnullOwnPtr<Memory::Region> dma_buffer);
 
 private:
     friend class Device;
@@ -77,5 +77,7 @@ private:
     u16 m_max_packet_size { 0 };  // Max packet size for this pipe
     u8 m_poll_interval { 0 };     // Polling interval (in frames)
     bool m_data_toggle { false }; // Data toggle for stuffing bit
+
+    NonnullOwnPtr<Memory::Region> m_dma_buffer;
 };
 }

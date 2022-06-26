@@ -59,6 +59,7 @@ struct alignas(16) TransferDescriptor final {
         DataBufferError = (1 << 21),
         Stalled = (1 << 22),
         Active = (1 << 23),
+        ErrorCount = ((1 << 28) | (1 << 27)),
         ErrorMask = BitStuffError | CRCTimeoutError | NAKReceived | BabbleDetected | DataBufferError | Stalled
     };
 

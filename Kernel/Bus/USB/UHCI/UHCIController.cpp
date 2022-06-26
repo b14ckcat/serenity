@@ -220,6 +220,8 @@ UNMAP_AFTER_INIT void UHCIController::setup_schedule()
     for (int frame = 0; frame < UHCI_NUMBER_OF_FRAMES; frame++) {
         // Each frame pointer points to iso_td % NUM_ISO_TDS
         framelist[frame] = m_iso_td_list.at(frame % UHCI_NUMBER_OF_ISOCHRONOUS_TDS)->paddr();
+	//framelist[frame] = m_lowspeed_control_qh->paddr();
+	//dbgln("ISO 0x{:x} status: 0x{:x}", m_iso_td_list.at(frame % UHCI_NUMBER_OF_ISOCHRONOUS_TDS)->paddr(), m_iso_td_list.at(frame % UHCI_NUMBER_OF_ISOCHRONOUS_TDS)->status());
     }
 
     m_interrupt_transfer_queue->print();
@@ -484,21 +486,22 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
     while (descriptor) {
         u32 status = descriptor->status();
 
-        if (status & TransferDescriptor::StatusBits::NAKReceived) {
-            transfer_still_in_progress = false;
-            break;
-        }
-
-        if (status & TransferDescriptor::StatusBits::Active) {
-            transfer_still_in_progress = true;
-            break;
-        }
-
         if (status & TransferDescriptor::StatusBits::ErrorMask) {
             transfer->set_complete();
             transfer->set_error_occurred();
             dbgln_if(UHCI_DEBUG, "UHCIController: Transfer failed! Reason: {:08x}", status);
             return 0;
+        }
+
+        if (!(status & TransferDescriptor::StatusBits::ErrorCount)) {
+            transfer->set_complete();
+            transfer->set_error_occurred();
+            return 0;
+	}
+
+        if (status & TransferDescriptor::StatusBits::Active) {
+            transfer_still_in_progress = true;
+            break;
         }
 
         transfer_size += descriptor->actual_packet_length();
