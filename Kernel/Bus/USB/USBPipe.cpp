@@ -54,6 +54,8 @@ Pipe::Pipe(USBController const& controller, Type type, Direction direction, u8 e
 
 ErrorOr<size_t> Pipe::control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void *data)
 {
+    MutexLocker locker(m_dma_buffer_lock);
+
     USBRequestData usb_request;
 
     usb_request.request_type = request_type;
@@ -78,6 +80,8 @@ ErrorOr<size_t> Pipe::control_transfer(u8 request_type, u8 request, u16 value, u
 
 ErrorOr<size_t> Pipe::bulk_transfer(u16 length, void *data)
 {
+    MutexLocker locker(m_dma_buffer_lock);
+
     size_t transfer_length = 0;
     auto transfer = TRY(Transfer::try_create(*this, length));
     transfer->set_data(length, data);

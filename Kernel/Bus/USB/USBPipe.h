@@ -8,6 +8,7 @@
 
 #include <AK/OwnPtr.h>
 #include <AK/Types.h>
+#include <Kernel/Locking/Mutex.h>
 #include <Kernel/Bus/USB/USBDescriptors.h>
 #include <Kernel/Memory/Region.h>
 
@@ -67,6 +68,8 @@ private:
     friend class Device;
 
     NonnullRefPtr<USBController> m_controller;
+
+    Mutex m_dma_buffer_lock {"USB pipe DMA buffer"};
 
     Type m_type;
     Direction m_direction;
