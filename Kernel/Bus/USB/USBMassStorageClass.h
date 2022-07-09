@@ -93,6 +93,8 @@ public:
     template<class T>
     ErrorOr<CSWStatus> try_scsi_command(T scsi_command, u8 lun, Pipe::Direction dir, void *buf)
     {
+        int retries;
+
         CommandBlockWrapper cbw {
 	    .dCBWTag = m_tag++,
 	    .dCBWDataTransferLength = scsi_command.data_len(),
@@ -101,23 +103,31 @@ public:
             .bCBWCBLength = scsi_command.cbd_size(),
 	    .CBWCB = {0}
 	};
-
 	memcpy(cbw.CBWCB, scsi_command.data(), scsi_command.cbd_size());
-	auto transfer_size = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
+        CommandStatusWrapper csw;
 
-	if (scsi_command.data_len() > 0) {
-	    if (dir == Pipe::Direction::In) {
-                transfer_size = m_bulk_in->bulk_transfer(scsi_command.data_len(), buf);
-                dbgln_if(USB_DEBUG, "Transfer in size: {}", transfer_size);
-	    } else if (dir == Pipe::Direction::Out) {
-                transfer_size = m_bulk_out->bulk_transfer(scsi_command.data_len(), buf);
-                dbgln_if(USB_DEBUG, "Transfer out size: {}", transfer_size);
+        for (retries = 10; retries > 0; retries--) {
+	    auto transfer_size_or_err = m_bulk_out->bulk_transfer(sizeof(CommandBlockWrapper), &cbw);
+	    if (transfer_size_or_err.is_error())
+	        continue;
+	    if (scsi_command.data_len() > 0) {
+	        if (dir == Pipe::Direction::In) {
+	            transfer_size_or_err = m_bulk_in->bulk_transfer(scsi_command.data_len(), buf);
+	            if (transfer_size_or_err.is_error())
+	                continue;
+	        } else if (dir == Pipe::Direction::Out) {
+	            transfer_size_or_err = m_bulk_out->bulk_transfer(scsi_command.data_len(), buf);
+	            if (transfer_size_or_err.is_error())
+	                continue;
+		}
 	    }
+            transfer_size_or_err = m_bulk_in->bulk_transfer(sizeof(CommandBlockWrapper), &csw);
+
+	    break;
 	}
 
-        CommandStatusWrapper csw;
-	transfer_size = m_bulk_in->bulk_transfer(sizeof(CommandStatusWrapper), &csw);
-	dbgln_if(USB_DEBUG, "USB transfer size: {}", transfer_size);
+	if (retries == 0)
+            return EPROTO;
 
 	return csw.bCSWStatus;
     }

@@ -26,7 +26,6 @@ public:
     ~Transfer();
 
     void set_setup_packet(USBRequestData const& request);
-    ErrorOr<void> write_buffer(u16 len, void * data);
     void set_complete() { m_complete = true; }
     void set_error_occurred() { m_error_occurred = true; }
 

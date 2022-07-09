@@ -41,9 +41,9 @@ ErrorOr<void> USBInterface::load_driver()
         for (auto endpoint_desc : m_endpoint_descriptors) {
 	    if (endpoint_desc.endpoint_attributes_bitmap & USBEndpoint::ENDPOINT_ATTRIBUTES_TRANSFER_TYPE_BULK) {
                 if (endpoint_desc.endpoint_address & USBEndpoint::ENDPOINT_ADDRESS_DIRECTION_IN)
-                    bulk_in = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), Pipe::Type::Control, Pipe::Direction::In, endpoint_desc.endpoint_address, endpoint_desc.max_packet_size, m_configuration.device().address(), 10));
+                    bulk_in = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), Pipe::Type::Bulk, Pipe::Direction::In, endpoint_desc.endpoint_address, endpoint_desc.max_packet_size, m_configuration.device().address(), 10));
 		else
-                    bulk_out = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), Pipe::Type::Control, Pipe::Direction::Out, endpoint_desc.endpoint_address, endpoint_desc.max_packet_size, m_configuration.device().address(), 10));
+                    bulk_out = TRY(Pipe::try_create_pipe(m_configuration.device().controller(), Pipe::Type::Bulk, Pipe::Direction::Out, endpoint_desc.endpoint_address, endpoint_desc.max_packet_size, m_configuration.device().address(), 10));
 	    }
 	}
 

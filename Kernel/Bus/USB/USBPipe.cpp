@@ -84,6 +84,7 @@ ErrorOr<size_t> Pipe::bulk_transfer(u16 length, void *data)
 
     size_t transfer_length = 0;
     auto transfer = TRY(Transfer::try_create(*this, length, *m_dma_buffer));
+    TRY(transfer->write_buffer(length, data));
 
     if (m_direction == Direction::In) {
         dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
