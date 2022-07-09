@@ -23,7 +23,7 @@ public:
         m_endpoint_descriptors.ensure_capacity(descriptor.number_of_endpoints);
         auto res = load_driver();
     }
-
+    int get_id() const { return m_descriptor.interface_id; }
     Vector<USBEndpointDescriptor> const& endpoints() const { return m_endpoint_descriptors; }
 
     USBInterfaceDescriptor const& descriptor() const { return m_descriptor; }

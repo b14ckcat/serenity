@@ -6,6 +6,8 @@
  */
 
 #include <AK/Platform.h>
+#include <Kernel/Arch/InterruptDisabler.h>
+#include <Kernel/Arch/ScopedCritical.h>
 #include <Kernel/Bus/PCI/API.h>
 #include <Kernel/Bus/USB/UHCI/UHCIController.h>
 #include <Kernel/Bus/USB/USBRequest.h>
@@ -117,8 +119,6 @@ ErrorOr<void> UHCIController::reset()
     write_flbaseadd(m_framelist->physical_page(0)->paddr().get()); // Frame list (physical) address
     write_frnum(0);                                                // Set the initial frame number
 
-    // FIXME: Work out why interrupts lock up the entire system....
-    // Disable UHCI Controller from raising an IRQ
     write_usbintr(0);
     dbgln("UHCI: Reset completed");
 
@@ -271,6 +271,7 @@ TransferDescriptor* UHCIController::create_transfer_descriptor(Pipe& pipe, Packe
 {
     TransferDescriptor* td = allocate_transfer_descriptor();
     if (td == nullptr) {
+        dbgln("No free transfer descriptor to allocate");
         return nullptr;
     }
 
@@ -320,12 +321,15 @@ ErrorOr<void> UHCIController::create_chain(Pipe& pipe, PacketID direction, Ptr32
 
         current_td = create_transfer_descriptor(pipe, direction, packet_size);
         if (current_td == nullptr) {
+            dbgln("No free transfer descriptor to allocate");
             free_descriptor_chain(first_td);
             return ENOMEM;
         }
 
         if (Checked<FlatPtr>::addition_would_overflow(reinterpret_cast<FlatPtr>(&*buffer_address), byte_count))
+	{
             return EOVERFLOW;
+	}
 
         auto buffer_pointer = Ptr32<u8>(buffer_address + byte_count);
         current_td->set_buffer_address(buffer_pointer);
@@ -370,7 +374,10 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
 
     TransferDescriptor* setup_td = create_transfer_descriptor(pipe, PacketID::SETUP, sizeof(USBRequestData));
     if (!setup_td)
+    {
+        dbgln("No free transfer descriptor to allocate");
         return ENOMEM;
+    }
 
     setup_td->set_buffer_address(transfer.buffer_physical().as_ptr());
 
@@ -385,6 +392,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
 
     TransferDescriptor* status_td = create_transfer_descriptor(pipe, direction_in ? PacketID::OUT : PacketID::IN, 0);
     if (!status_td) {
+        dbgln("No free transfer descriptor to allocate");
         free_descriptor_chain(data_descriptor_chain);
         return ENOMEM;
     }
@@ -412,6 +420,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
 
     QueueHead* transfer_queue = allocate_queue_head();
     if (!transfer_queue) {
+        dbgln("No free transfer descriptor to allocate");
         free_descriptor_chain(data_descriptor_chain);
         return ENOMEM;
     }
@@ -454,6 +463,7 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 
     QueueHead* transfer_queue = allocate_queue_head();
     if (!transfer_queue) {
+        dbgln("No free queue head to allocate");
         free_descriptor_chain(data_descriptor_chain);
         return ENOMEM;
     }
@@ -464,9 +474,22 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     m_bulk_qh->attach_transfer_queue(*transfer_queue);
 
     size_t transfer_size = 0;
+    uint16_t last_frame = read_frnum();
+    uint16_t current_frame;
+    uint8_t frames_used = 0;
     while (!transfer.complete()) {
+        current_frame = read_frnum();
+	if (current_frame != last_frame) {
+	    frames_used++;
+	    last_frame = current_frame;
+	}
+	if (frames_used >= 10) {
+            free_descriptor_chain(transfer_queue->get_first_td());
+            transfer_queue->free();
+            m_queue_head_pool->release_to_pool(transfer_queue);
+	    return EPROTO;
+	}
         transfer_size = poll_transfer_queue(*transfer_queue);
-        dbgln_if(USB_DEBUG, "Transfer size: {}", transfer_size);
     }
 
     free_descriptor_chain(transfer_queue->get_first_td());
@@ -496,6 +519,7 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
         if (!(status & TransferDescriptor::StatusBits::ErrorCount)) {
             transfer->set_complete();
             transfer->set_error_occurred();
+            dbgln_if(UHCI_DEBUG, "UHCIController: Max error reached");
             return 0;
 	}
 
@@ -537,8 +561,6 @@ bool UHCIController::handle_irq(RegisterState const&)
         return false;
 
     if constexpr (UHCI_DEBUG) {
-        dbgln("UHCI: Interrupt happened!");
-        dbgln("Value of USBSTS: {:#04x}", read_usbsts());
     }
 
     // Write back USBSTS to clear bits

@@ -64,7 +64,7 @@ ErrorOr<size_t> Pipe::control_transfer(u8 request_type, u8 request, u16 value, u
     usb_request.index = index;
     usb_request.length = length;
 
-    auto transfer = TRY(Transfer::try_create(*this, length, m_dma_buffer));
+    auto transfer = TRY(Transfer::try_create(*this, length, *m_dma_buffer));
     transfer->set_setup_packet(usb_request);
 
     dbgln_if(USB_DEBUG, "Pipe: Control transfer allocated @ {}", transfer->buffer_physical());
@@ -83,8 +83,8 @@ ErrorOr<size_t> Pipe::bulk_transfer(u16 length, void *data)
     MutexLocker locker(m_dma_buffer_lock);
 
     size_t transfer_length = 0;
-    auto transfer = TRY(Transfer::try_create(*this, length));
-    transfer->set_data(length, data);
+    auto transfer = TRY(Transfer::try_create(*this, length, *m_dma_buffer));
+    TRY(transfer->write_buffer(length, data));
 
     if (m_direction == Direction::In) {
         dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
