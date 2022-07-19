@@ -15,10 +15,11 @@
 #include <Kernel/Memory/PhysicalPage.h>
 #include <Kernel/Memory/Region.h>
 
-// TODO: Callback stuff in this class please!
 namespace Kernel::USB {
 
 class Transfer final : public AtomicRefCounted<Transfer> {
+using usb_callback = void(*)();
+
 public:
     static ErrorOr<NonnullLockRefPtr<Transfer>> try_create(Pipe&, u16 length, Memory::Region& dma_buffer);
 
@@ -40,6 +41,8 @@ public:
     u16 transfer_data_size() const { return m_transfer_data_size; }
     bool complete() const { return m_complete; }
     bool error_occurred() const { return m_error_occurred; }
+
+    usb_callback completion_callback;
 
 private:
     Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer);
