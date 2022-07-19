@@ -10,6 +10,7 @@
 #include <AK/Array.h>
 #include <AK/NonnullOwnPtr.h>
 #include <AK/Platform.h>
+#include <AK/Vector.h>
 #include <Kernel/Arch/x86/IO.h>
 #include <Kernel/Bus/PCI/Device.h>
 #include <Kernel/Bus/USB/UHCI/UHCIDescriptorPool.h>
@@ -48,6 +49,7 @@ public:
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_bulk_transfer_async(Transfer& transfer) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -79,6 +81,10 @@ private:
     ErrorOr<void> create_structures();
     void setup_schedule();
 
+    ErrorOr<void> spawn_async_supervisor();
+
+    ErrorOr<QueueHead*> submit_bulk_common(Transfer& transfer);
+
     void enqueue_qh(QueueHead* transfer_queue, QueueHead* anchor);
     void dequeue_qh(QueueHead* transfer_queue);
 
@@ -96,6 +102,7 @@ private:
     IOAddress m_io_base;
 
     Spinlock m_schedule_lock;
+    Spinlock m_async_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
     OwnPtr<UHCIDescriptorPool<QueueHead>> m_queue_head_pool;
@@ -112,6 +119,8 @@ private:
 
     OwnPtr<Memory::Region> m_framelist;
     OwnPtr<Memory::Region> m_isochronous_transfer_pool;
+
+    Vector<QueueHead*> active_async_qhs;
 
     // Bitfield containing whether a given port should signal a change in reset or not.
     u8 m_port_reset_change_statuses { 0 };

@@ -79,6 +79,7 @@ ErrorOr<void> UHCIController::initialize()
     dmesgln("UHCI: Interrupt line: {}", interrupt_number());
 
     TRY(spawn_port_process());
+    TRY(spawn_async_supervisor());
 
     TRY(reset());
     return start();
@@ -120,7 +121,7 @@ ErrorOr<void> UHCIController::reset()
     write_flbaseadd(m_framelist->physical_page(0)->paddr().get()); // Frame list (physical) address
     write_frnum(0);                                                // Set the initial frame number
 
-    write_usbintr(0);
+    write_usbintr(1);
     dbgln("UHCI: Reset completed");
 
     return {};
@@ -472,7 +473,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+ErrorOr<QueueHead*> UHCIController::submit_bulk_common(Transfer& transfer)
 {
     Pipe& pipe = transfer.pipe();
     dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
@@ -504,6 +505,13 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 
     enqueue_qh(transfer_queue, m_bulk_qh_anchor);
 
+    return transfer_queue;
+}
+
+ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+{
+    auto transfer_queue = TRY(submit_bulk_common(transfer));
+
     size_t transfer_size = 0;
     uint16_t last_frame = read_frnum();
     uint16_t current_frame;
@@ -532,6 +540,16 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     return transfer_size;
 }
 
+ErrorOr<void> UHCIController::submit_bulk_transfer_async(Transfer& transfer)
+{
+    auto transfer_queue = TRY(submit_bulk_common(transfer));
+
+    SpinlockLocker locker(m_async_lock);
+    active_async_qhs.append(transfer_queue);
+
+    return {};
+}
+
 size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 {
     Transfer* transfer = transfer_queue.transfer();
@@ -541,7 +559,6 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 
     while (descriptor) {
         u32 status = descriptor->status();
-
         if (status & TransferDescriptor::StatusBits::ErrorMask) {
             transfer->set_complete();
             transfer->set_error_occurred();
@@ -571,6 +588,39 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
     return transfer_size;
 }
 
+ErrorOr<void> UHCIController::spawn_async_supervisor()
+{
+    RefPtr<Thread> async_supervisor_thread;
+
+    (void)Process::create_kernel_process(async_supervisor_thread, TRY(KString::try_create("UHCI Async Supervisor Task")), [&] {
+        for (;;) {
+	    SpinlockLocker locker(m_async_lock);
+
+	    for (u32 i = 0; i < active_async_qhs.size(); i++) {
+                QueueHead* qh = active_async_qhs[i];
+	        TransferDescriptor* td = qh->get_first_td();
+		while (td != nullptr) {
+                    if (td->active()) {
+		        break;
+		    } else if (td->next_td() == nullptr) { // Finished QH
+                        qh->transfer()->completion_callback();
+			active_async_qhs.remove(i);
+                        dequeue_qh(qh);
+                        free_descriptor_chain(qh->get_first_td());
+                        qh->free();
+                        m_queue_head_pool->release_to_pool(qh);
+		    }
+		}
+	    }
+	    locker.unlock();
+
+            (void)Thread::current()->sleep(Time::from_milliseconds(1));
+        }
+    });
+
+    return {};
+}
+
 ErrorOr<void> UHCIController::spawn_port_process()
 {
     LockRefPtr<Thread> usb_hotplug_thread;
@@ -582,6 +632,7 @@ ErrorOr<void> UHCIController::spawn_port_process()
             (void)Thread::current()->sleep(Time::from_seconds(1));
         }
     });
+
     return {};
 }
 
