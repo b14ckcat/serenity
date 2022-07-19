@@ -14,8 +14,9 @@
 #include <Kernel/Memory/PhysicalPage.h>
 #include <Kernel/Memory/Region.h>
 
-// TODO: Callback stuff in this class please!
 namespace Kernel::USB {
+
+using usb_callback = void(*)();
 
 class Transfer : public RefCounted<Transfer> {
 public:
@@ -39,6 +40,8 @@ public:
     u16 transfer_data_size() const { return m_transfer_data_size; }
     bool complete() const { return m_complete; }
     bool error_occurred() const { return m_error_occurred; }
+
+    usb_callback complete_callback;
 
 private:
     Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer);

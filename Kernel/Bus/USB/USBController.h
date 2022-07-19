@@ -13,8 +13,10 @@
 
 namespace Kernel::USB {
 
+
 class USBController : public RefCounted<USBController> {
 public:
+
     virtual ~USBController() = default;
 
     virtual ErrorOr<void> initialize() = 0;
@@ -25,6 +27,7 @@ public:
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer&) = 0;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer&) = 0;
+    virtual ErrorOr<void> submit_bulk_transfer_async(Transfer& transfer) = 0;
 
     u8 allocate_address();
 
