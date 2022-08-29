@@ -12,6 +12,7 @@
 #include <Kernel/Bus/USB/UHCI/UHCIController.h>
 #include <Kernel/Bus/USB/USBRequest.h>
 #include <Kernel/Debug.h>
+#include <Kernel/Locking/Spinlock.h>
 #include <Kernel/Memory/AnonymousVMObject.h>
 #include <Kernel/Memory/MemoryManager.h>
 #include <Kernel/Process.h>
@@ -90,6 +91,7 @@ UNMAP_AFTER_INIT UHCIController::UHCIController(PCI::DeviceIdentifier const& pci
     , IRQHandler(pci_device_identifier.interrupt_line().value())
     , m_io_base(PCI::get_BAR4(pci_address()) & ~1)
     , m_schedule_lock(LockRank::None)
+    , m_async_lock(LockRank::None)
 {
 }
 
@@ -590,9 +592,9 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
 
 ErrorOr<void> UHCIController::spawn_async_supervisor()
 {
-    RefPtr<Thread> async_supervisor_thread;
-
-    (void)Process::create_kernel_process(async_supervisor_thread, TRY(KString::try_create("UHCI Async Supervisor Task")), [&] {
+	/*
+    LockRefPtr<Thread> async_supervisor_thread;
+    (void)Process::create_kernel_process(async_supervisor_thread, KString::must_create("UHCI Async Supervisor Task"sv), [&] {
         for (;;) {
 	    SpinlockLocker locker(m_async_lock);
 
@@ -617,6 +619,7 @@ ErrorOr<void> UHCIController::spawn_async_supervisor()
             (void)Thread::current()->sleep(Time::from_milliseconds(1));
         }
     });
+    */
 
     return {};
 }
@@ -624,7 +627,7 @@ ErrorOr<void> UHCIController::spawn_async_supervisor()
 ErrorOr<void> UHCIController::spawn_port_process()
 {
     LockRefPtr<Thread> usb_hotplug_thread;
-    (void)Process::create_kernel_process(usb_hotplug_thread, TRY(KString::try_create("UHCI Hot Plug Task"sv)), [&] {
+    (void)Process::create_kernel_process(usb_hotplug_thread, KString::must_create("UHCI Hot Plug Task"sv), [&] {
         for (;;) {
             if (m_root_hub)
                 m_root_hub->check_for_port_updates();

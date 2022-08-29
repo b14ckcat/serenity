@@ -70,8 +70,6 @@ private:
 
     NonnullLockRefPtr<USBController> m_controller;
 
-    Mutex m_dma_buffer_lock {"USB pipe DMA buffer"};
-
     Type m_type;
     Direction m_direction;
     DeviceSpeed m_speed;

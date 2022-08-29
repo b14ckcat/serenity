@@ -23,20 +23,17 @@ namespace Kernel {
 using namespace AK;
 using namespace USB;
 
-ErrorOr<NonnullRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr<USB::MassStorageHandle> usb_msc_handle)
+ErrorOr<NonnullLockRefPtr<USBMassStorageDevice>> USBMassStorageDevice::create(OwnPtr<USB::MassStorageHandle> usb_msc_handle)
 {
     auto minor_number = StorageManagement::generate_storage_minor_number();
-    auto device_name = MUST(KString::formatted("USBMassStorageDevice"));
-
     auto metadata = TRY(get_metadata(usb_msc_handle));
-
-    auto device_or_error = DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, move(metadata), move(device_name));
-    VERIFY(!device_or_error.is_error());
-    return device_or_error.release_value();
+    auto device_name = MUST(KString::formatted("USB mass storage"));
+    dbgln("{}", device_name);
+    return DeviceManagement::try_create_device<USBMassStorageDevice>(move(usb_msc_handle), minor_number, move(metadata), move(device_name));
 }
 
 USBMassStorageDevice::USBMassStorageDevice(OwnPtr<USB::MassStorageHandle> usb_msc_handle, MinorNumber minor_number, OwnPtr<SCSIMetadata> metadata, NonnullOwnPtr<KString> device_name)
-    : StorageDevice(StorageManagement::storage_type_major_number(), minor_number, metadata->block_size, metadata->num_blocks, move(device_name))
+    : StorageDevice(LUNAddress { 7, 7, 7 }, StorageManagement::storage_type_major_number(), minor_number, metadata->block_size, metadata->num_blocks, move(device_name))
     , m_metadata(move(metadata))
     , m_usb_msc_handle(move(usb_msc_handle))
 {

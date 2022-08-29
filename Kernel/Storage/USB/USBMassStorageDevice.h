@@ -28,7 +28,7 @@ class USBMassStorageDevice final : public StorageDevice {
     friend class DeviceManagement;
 
 public:
-    static ErrorOr<NonnullRefPtr<USBMassStorageDevice>> create(OwnPtr<USB::MassStorageHandle>);
+    static ErrorOr<NonnullLockRefPtr<USBMassStorageDevice>> create(OwnPtr<USB::MassStorageHandle>);
     virtual ~USBMassStorageDevice() override;
 
     virtual void start_request(AsyncBlockDeviceRequest&) override;
@@ -44,7 +44,7 @@ private:
     ErrorOr<void> read(u32 lba, void * buf);
     ErrorOr<void> write(u32 lba, void * buf);
 
-    Mutex m_lock {"USB MSC device"};
+    Mutex m_lock {"USB MSC device"sv};
     OwnPtr<SCSIMetadata> m_metadata;
     OwnPtr<USB::MassStorageHandle> m_usb_msc_handle;
 };
