@@ -13,7 +13,7 @@
 #include <AK/Vector.h>
 #include <Kernel/Arch/x86/IO.h>
 #include <Kernel/Bus/PCI/Device.h>
-#include <Kernel/Bus/USB/UHCI/UHCIDescriptorPool.h>
+#include <Kernel/Bus/USB/UHCI/MemoryPool.h>
 #include <Kernel/Bus/USB/UHCI/UHCIDescriptorTypes.h>
 #include <Kernel/Bus/USB/UHCI/UHCIRootHub.h>
 #include <Kernel/Bus/USB/USBController.h>
@@ -105,8 +105,8 @@ private:
     Spinlock m_async_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
-    OwnPtr<UHCIDescriptorPool<QueueHead>> m_queue_head_pool;
-    OwnPtr<UHCIDescriptorPool<TransferDescriptor>> m_transfer_descriptor_pool;
+    OwnPtr<MemoryPool<QueueHead>> m_queue_head_memory_pool;
+    OwnPtr<MemoryPool<TransferDescriptor>> m_transfer_descriptor_memory_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
 
     QueueHead* m_schedule_begin_anchor;

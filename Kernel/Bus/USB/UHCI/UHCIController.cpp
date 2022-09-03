@@ -130,7 +130,7 @@ ErrorOr<void> UHCIController::reset()
 
 UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
 {
-    m_queue_head_pool = TRY(UHCIDescriptorPool<QueueHead>::try_create("Queue Head Pool"sv));
+    m_queue_head_memory_pool = TRY(MemoryPool<QueueHead>::try_create("Queue Head Pool"sv));
 
     // Used as a sentinel value to loop back to the beginning of the list
     m_schedule_begin_anchor = allocate_queue_head();
@@ -145,7 +145,7 @@ UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
     m_bulk_qh_anchor = allocate_queue_head();
 
     // Now the Transfer Descriptor pool
-    m_transfer_descriptor_pool = TRY(UHCIDescriptorPool<TransferDescriptor>::try_create("Transfer Descriptor Pool"sv));
+    m_transfer_descriptor_memory_pool = TRY(MemoryPool<TransferDescriptor>::try_create("Transfer Descriptor Pool"sv));
 
     m_isochronous_transfer_pool = TRY(MM.allocate_dma_buffer_page("UHCI Isochronous Descriptor Pool"sv, Memory::Region::Access::ReadWrite));
 
@@ -170,8 +170,8 @@ UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
 
     if constexpr (UHCI_DEBUG) {
         dbgln("UHCI: Pool information:");
-        m_queue_head_pool->print_pool_information();
-        m_transfer_descriptor_pool->print_pool_information();
+        m_queue_head_memory_pool->print_pool_information();
+        m_transfer_descriptor_memory_pool->print_pool_information();
     }
 
     return {};
@@ -248,12 +248,12 @@ UNMAP_AFTER_INIT void UHCIController::setup_schedule()
 
 QueueHead* UHCIController::allocate_queue_head()
 {
-    return m_queue_head_pool->try_take_free_descriptor();
+    return m_queue_head_memory_pool->try_take_free_block();
 }
 
 TransferDescriptor* UHCIController::allocate_transfer_descriptor()
 {
-    return m_transfer_descriptor_pool->try_take_free_descriptor();
+    return m_transfer_descriptor_memory_pool->try_take_free_block();
 }
 
 ErrorOr<void> UHCIController::stop()
@@ -367,7 +367,7 @@ void UHCIController::free_descriptor_chain(TransferDescriptor* first_descriptor)
         TransferDescriptor* next = descriptor->next_td();
 
         descriptor->free();
-        m_transfer_descriptor_pool->release_to_pool(descriptor);
+        m_transfer_descriptor_memory_pool->release_to_pool(descriptor);
         descriptor = next;
     }
 }
@@ -460,7 +460,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     dequeue_qh(transfer_queue);
     free_descriptor_chain(transfer_queue->get_first_td());
     transfer_queue->free();
-    m_queue_head_pool->release_to_pool(transfer_queue);
+    m_queue_head_memory_pool->release_to_pool(transfer_queue);
 
     return transfer_size;
 }
@@ -512,7 +512,7 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     dequeue_qh(transfer_queue);
     free_descriptor_chain(transfer_queue->get_first_td());
     transfer_queue->free();
-    m_queue_head_pool->release_to_pool(transfer_queue);
+    m_queue_head_memory_pool->release_to_pool(transfer_queue);
 
     return transfer_size;
 }
@@ -578,7 +578,7 @@ ErrorOr<void> UHCIController::spawn_async_supervisor()
                         dequeue_qh(qh);
                         free_descriptor_chain(qh->get_first_td());
                         qh->free();
-                        m_queue_head_pool->release_to_pool(qh);
+                        m_queue_head_memory_pool->release_to_pool(qh);
 		    }
 		}
 	    }
