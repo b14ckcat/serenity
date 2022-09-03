@@ -151,7 +151,7 @@ private:
             auto page_idx = i / PAGE_SIZE;
             PhysicalAddress paddr { m_pool_region->physical_page(page_idx)->paddr().offset(m_buffer_size * i) };
             auto handle_addr = reinterpret_cast<void*>(m_handle_region->vaddr().get() + (i * sizeof(USBDMAHandle)));
-            USBDMAHandle* dma_handle = new (handle_addr) USBDMAHandle(vaddr, paddr, m_buffer_size);
+            USBDMAHandle* dma_handle = new (handle_addr) USBDMAHandle { vaddr, paddr, m_buffer_size };
             m_dma_handles.append(dma_handle);
         }
     }
