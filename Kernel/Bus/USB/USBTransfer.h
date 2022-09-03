@@ -23,7 +23,6 @@ public:
     static ErrorOr<NonnullLockRefPtr<Transfer>> try_create(Pipe&, u16 length, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr);
 
     Transfer() = delete;
-    ~Transfer();
 
     void set_setup_packet(USBRequestData const& request);
     void set_complete() { m_complete = true; }

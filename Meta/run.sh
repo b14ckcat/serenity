@@ -497,5 +497,5 @@ else
         $SERENITY_NETFLAGS_WITH_DEFAULT_DEVICE \
         $SERENITY_KERNEL_AND_INITRD \
         -append "${SERENITY_KERNEL_CMDLINE}" \
-	-device usb-kdb
+	-device usb-mouse
 fi

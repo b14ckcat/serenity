@@ -58,7 +58,6 @@ public:
             return ENOMEM;
 
         size_t buffer_idx = m_free_indices[--m_free];
-	size_t page_idx = (buffer_idx * m_size) / PAGE_SIZE;
         vaddr.set(m_region->vaddr().get() + (m_size * buffer_idx));
         paddr.set(m_region->physical_page(0)->paddr().get() + (m_size * buffer_idx));
 	return {};

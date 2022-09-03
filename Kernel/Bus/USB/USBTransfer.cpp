@@ -22,8 +22,6 @@ Transfer::Transfer(Pipe& pipe, u16 len, VirtualAddress buffer_vaddr, PhysicalAdd
 {
 }
 
-Transfer::~Transfer() = default;
-
 void Transfer::set_setup_packet(USBRequestData const& request)
 {
     // Kind of a nasty hack... Because the kernel isn't in the business

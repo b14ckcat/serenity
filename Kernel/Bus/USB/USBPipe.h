@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021, Jesse Buhagiar <jooster669@gmail.com>
+ * Copyright (c) 2022, blackcat <b14ckcat@protonmail.com>
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -8,6 +9,7 @@
 
 #include <AK/OwnPtr.h>
 #include <AK/Types.h>
+#include <Kernel/Bus/USB/USBDMAPool.h>
 #include <Kernel/Bus/USB/USBDescriptors.h>
 #include <Kernel/Memory/BufferPool.h>
 
@@ -17,8 +19,7 @@ class USBController;
 
 //
 // A pipe is the logical connection between a memory buffer on the PC (host) and
-// an endpoint on the device. In this implementation, the data buffer the pipe connects
-// to is the physical buffer created when a Transfer is allocated.
+// an endpoint on the device.
 //
 class Pipe {
 public:
@@ -40,8 +41,6 @@ public:
         FullSpeed
     };
 
-    static ErrorOr<NonnullOwnPtr<Pipe>> try_create_pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval = 0);
-
     Type type() const { return m_type; }
     Direction direction() const { return m_direction; }
     DeviceSpeed device_speed() const { return m_speed; }
@@ -49,22 +48,16 @@ public:
     i8 device_address() const { return m_device_address; }
     u8 endpoint_address() const { return m_endpoint_address; }
     u16 max_packet_size() const { return m_max_packet_size; }
-    u8 poll_interval() const { return m_poll_interval; }
     bool data_toggle() const { return m_data_toggle; }
 
     void set_max_packet_size(u16 max_size) { m_max_packet_size = max_size; }
     void set_toggle(bool toggle) { m_data_toggle = toggle; }
     void set_device_address(i8 addr) { m_device_address = addr; }
 
-    ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
-    ErrorOr<size_t> bulk_transfer(u16 length, void* data);
-
-    Pipe(USBController const& controller, Type type, Direction direction, u16 max_packet_size, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
-    Pipe(USBController const& controller, Type type, Direction direction, USBEndpointDescriptor& endpoint, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
-    Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, u8 poll_interval, i8 device_address, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
-
-private:
+protected:
     friend class Device;
+
+    Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
 
     NonnullLockRefPtr<USBController> m_controller;
 
@@ -79,6 +72,76 @@ private:
     bool m_data_toggle { false }; // Data toggle for stuffing bit
 
     NonnullOwnPtr<Memory::BufferPool> m_buffer_pool;
+};
+
+// Control pipes are bidirectional
+class ControlPipe : public Pipe {
+public:
+    static ErrorOr<NonnullOwnPtr<ControlPipe>> create(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address);
+
+    ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
+
+private:
+    ControlPipe(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
+};
+
+class BulkInPipe : public Pipe {
+public:
+    static ErrorOr<NonnullOwnPtr<BulkInPipe>> create(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address);
+
+    ErrorOr<size_t> bulk_in_transfer(u16 length, void* data);
+
+private:
+    BulkInPipe(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
+};
+
+class BulkOutPipe : public Pipe {
+public:
+    static ErrorOr<NonnullOwnPtr<BulkOutPipe>> create(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address);
+
+    ErrorOr<size_t> bulk_out_transfer(u16 length, void* data);
+
+private:
+    BulkOutPipe(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
+};
+
+class InterruptInPipe : public Pipe {
+public:
+    static ErrorOr<NonnullOwnPtr<InterruptInPipe>> create(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval);
+
+    u8 poll_interval() const { return m_poll_interval; }
+    ErrorOr<size_t> interrupt_transfer(u16 length, void* data);
+
+private:
+    InterruptInPipe(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
+
+    u8 m_poll_interval;
+};
+
+class InterruptOutPipe : public Pipe {
+public:
+    static ErrorOr<NonnullOwnPtr<InterruptOutPipe>> create(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval);
+
+    u8 poll_interval() const { return m_poll_interval; }
+    ErrorOr<size_t> interrupt_transfer(u16 length, void* data);
+
+private:
+    InterruptOutPipe(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval, NonnullOwnPtr<Memory::BufferPool> buffer_pool);
+
+    u8 m_poll_interval;
+};
+
+
+class IsochronousInPipe : public Pipe {
+    // TODO
+public:
+private:
+};
+
+class IsochronousOutPipe : public Pipe {
+    // TODO
+public:
+private:
 };
 
 }
