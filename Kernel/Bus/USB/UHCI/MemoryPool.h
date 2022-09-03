@@ -81,8 +81,8 @@ private:
         }
     }
 
-    StringView m_pool_name;                                   // Name of this pool
-    NonnullOwnPtr<Memory::Region> m_pool_region;              // Memory region where blocks actually reside
+    StringView m_pool_name;                              // Name of this pool
+    NonnullOwnPtr<Memory::Region> m_pool_region;         // Memory region that blocks are pulled from 
     Stack<T*, PAGE_SIZE / sizeof(T)> m_free_block_stack; // Stack of currently free block pointers
     Spinlock m_pool_lock;
 };

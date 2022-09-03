@@ -27,6 +27,9 @@ public:
     virtual ErrorOr<size_t> submit_control_transfer(Transfer&) = 0;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) = 0;
     virtual ErrorOr<void> submit_bulk_transfer_async(Transfer& transfer) = 0;
+    virtual ErrorOr<void> submit_interrupt_transfer_async(Transfer& transfer, int interval_ms) = 0;
+
+    virtual ErrorOr<void*> allocate_dma_buffer() = 0;
 
     u8 allocate_address();
 

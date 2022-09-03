@@ -15,6 +15,7 @@
 #include <Kernel/Bus/PCI/Device.h>
 #include <Kernel/Bus/USB/UHCI/MemoryPool.h>
 #include <Kernel/Bus/USB/UHCI/UHCIDescriptorTypes.h>
+#include <Kernel/Bus/USB/UHCI/UHCITransferDMABuffer.h>
 #include <Kernel/Bus/USB/UHCI/UHCIRootHub.h>
 #include <Kernel/Bus/USB/USBController.h>
 #include <Kernel/Interrupts/IRQHandler.h>
@@ -50,6 +51,9 @@ public:
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
     virtual ErrorOr<void> submit_bulk_transfer_async(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_interrupt_transfer_async(Transfer& transfer, int interval_ms) override;
+
+    virtual ErrorOr<void*> allocate_dma_buffer() override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -105,6 +109,7 @@ private:
     Spinlock m_async_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
+    OwnPtr<MemoryPool<UHCITransferDMABuffer>> m_transfer_dma_buffer_memory_pool;
     OwnPtr<MemoryPool<QueueHead>> m_queue_head_memory_pool;
     OwnPtr<MemoryPool<TransferDescriptor>> m_transfer_descriptor_memory_pool;
     Vector<TransferDescriptor*> m_iso_td_list;

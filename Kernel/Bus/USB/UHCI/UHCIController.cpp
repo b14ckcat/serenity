@@ -130,6 +130,8 @@ ErrorOr<void> UHCIController::reset()
 
 UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
 {
+    m_transfer_dma_buffer_memory_pool = TRY(MemoryPool<UHCITransferDMABuffer>::try_create("Transfer DMA Buffer Pool"sv));
+
     m_queue_head_memory_pool = TRY(MemoryPool<QueueHead>::try_create("Queue Head Pool"sv));
 
     // Used as a sentinel value to loop back to the beginning of the list
@@ -399,8 +401,9 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
         return m_root_hub->handle_control_transfer(transfer);
 
     TransferDescriptor* setup_td = create_transfer_descriptor(pipe, PacketID::SETUP, sizeof(USBRequestData));
-    if (!setup_td)
+    if (!setup_td) {
         return ENOMEM;
+    }
 
     setup_td->set_buffer_address(transfer.buffer_physical().as_ptr());
 
@@ -525,6 +528,18 @@ ErrorOr<void> UHCIController::submit_bulk_transfer_async(Transfer& transfer)
     active_async_qhs.append(transfer_queue);
 
     return {};
+}
+
+ErrorOr<void> UHCIController::submit_interrupt_transfer_async(Transfer& transfer, int interval_ms)
+{
+    (void)transfer;
+    (void)interval_ms;
+    return {};
+}
+
+ErrorOr<void*> UHCIController::allocate_dma_buffer()
+{
+    return nullptr;
 }
 
 size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)

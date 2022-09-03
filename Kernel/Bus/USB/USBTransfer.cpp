@@ -9,14 +9,13 @@
 
 namespace Kernel::USB {
 
-ErrorOr<NonnullLockRefPtr<Transfer>> Transfer::try_create(Pipe& pipe, u16 length, Memory::Region& dma_buffer)
+ErrorOr<NonnullLockRefPtr<Transfer>> Transfer::try_create(Pipe& pipe, u16 length)
 {
-    return adopt_nonnull_lock_ref_or_enomem(new (nothrow) Transfer(pipe, length, dma_buffer));
+    return adopt_nonnull_lock_ref_or_enomem(new (nothrow) Transfer(pipe, length));
 }
 
-Transfer::Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer)
+Transfer::Transfer(Pipe& pipe, u16 len)
     : m_pipe(pipe)
-    , m_dma_buffer(dma_buffer)
     , m_transfer_data_size(len)
 {
 }
@@ -42,9 +41,13 @@ void Transfer::set_setup_packet(USBRequestData const& request)
 
 ErrorOr<void> Transfer::write_buffer(u16 len, void* data)
 {
+    (void)len;
+    (void)data;
+/*
     VERIFY(len <= m_dma_buffer.size());
     m_transfer_data_size = len;
     memcpy(buffer().as_ptr(), data, len);
+*/
 
     return {};
 }

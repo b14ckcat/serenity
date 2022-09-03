@@ -21,7 +21,7 @@ class Transfer final : public AtomicRefCounted<Transfer> {
 using usb_callback = void(*)();
 
 public:
-    static ErrorOr<NonnullLockRefPtr<Transfer>> try_create(Pipe&, u16 length, Memory::Region& dma_buffer);
+    static ErrorOr<NonnullLockRefPtr<Transfer>> try_create(Pipe&, u16 length);
 
     Transfer() = delete;
     ~Transfer();
@@ -36,22 +36,26 @@ public:
     USBRequestData const& request() const { return m_request; }
     Pipe const& pipe() const { return m_pipe; }
     Pipe& pipe() { return m_pipe; }
-    VirtualAddress buffer() const { return m_dma_buffer.vaddr(); }
-    PhysicalAddress buffer_physical() const { return m_dma_buffer.physical_page(0)->paddr(); }
+    VirtualAddress buffer() const { return m_dma_vaddr; }
+    PhysicalAddress buffer_physical() const { return m_dma_paddr; }
     u16 transfer_data_size() const { return m_transfer_data_size; }
     bool complete() const { return m_complete; }
     bool error_occurred() const { return m_error_occurred; }
 
-    usb_callback completion_callback;
+    // Only used for async transfers
+    usb_callback completion_callback { nullptr };
 
 private:
-    Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer);
+    Transfer(Pipe& pipe, u16 len);
     Pipe& m_pipe;                    // Pipe that initiated this transfer
-    Memory::Region& m_dma_buffer;    // DMA buffer
     USBRequestData m_request;        // USB request
     u16 m_transfer_data_size { 0 };  // Size of the transfer's data stage
     bool m_complete { false };       // Has this transfer been completed?
     bool m_error_occurred { false }; // Did an error occur during this transfer?
+
+    PhysicalAddress m_dma_paddr;
+    VirtualAddress m_dma_vaddr;
+    void* m_dma_buffer { nullptr };  // Buffer for sending & receiving data
 };
 
 }
