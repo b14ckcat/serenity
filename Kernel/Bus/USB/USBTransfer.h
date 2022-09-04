@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2021, Jesse Buhagiar <jooster669@gmail.com>
  *
  * SPDX-License-Identifier: BSD-2-Clause
