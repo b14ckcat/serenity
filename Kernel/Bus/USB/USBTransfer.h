@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright (c) 2021, Jesse Buhagiar <jooster669@gmail.com>
  *
  * SPDX-License-Identifier: BSD-2-Clause
@@ -15,7 +15,6 @@
 #include <Kernel/Memory/PhysicalPage.h>
 #include <Kernel/Memory/Region.h>
 
-// TODO: Callback stuff in this class please!
 namespace Kernel::USB {
 
 class Transfer final : public AtomicRefCounted<Transfer> {
