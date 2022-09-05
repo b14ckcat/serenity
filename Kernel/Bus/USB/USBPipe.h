@@ -9,6 +9,7 @@
 
 #include <AK/OwnPtr.h>
 #include <AK/Types.h>
+#include <Kernel/Bus/USB/USBDMAPool.h>
 #include <Kernel/Bus/USB/USBDescriptors.h>
 #include <Kernel/Locking/Mutex.h>
 #include <Kernel/Memory/Region.h>
@@ -58,7 +59,7 @@ public:
 protected:
     friend class Device;
 
-    Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address);
+    Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool);
 
     NonnullLockRefPtr<USBController> m_controller;
 
@@ -71,6 +72,8 @@ protected:
     u16 m_max_packet_size { 0 };  // Max packet size for this pipe
     u8 m_poll_interval { 0 };     // Polling interval (in frames)
     bool m_data_toggle { false }; // Data toggle for stuffing bit
+                                  //
+    OwnPtr<USBDMAPool<USBDMAHandle>> m_dma_pool;
 };
 
 class ControlPipe : public Pipe {
@@ -80,7 +83,7 @@ public:
     ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
 
 private:
-    ControlPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address);
+    ControlPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool);
 };
 
 class BulkPipe : public Pipe {
@@ -90,7 +93,7 @@ public:
     ErrorOr<size_t> bulk_transfer(u16 length, void* data);
 
 private:
-    BulkPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address);
+    BulkPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool);
 };
 
 class InterruptPipe : public Pipe {
@@ -101,7 +104,7 @@ public:
     ErrorOr<size_t> interrupt_transfer(u16 length, void* data);
 
 private:
-    InterruptPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval);
+    InterruptPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool);
 
     u8 m_poll_interval;
 };

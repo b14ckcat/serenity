@@ -13,7 +13,7 @@
 
 namespace Kernel::USB {
 
-Pipe::Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address)
+Pipe::Pipe(USBController const& controller, Type type, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool)
     : m_controller(controller)
     , m_type(type)
     , m_direction(direction)
@@ -21,16 +21,18 @@ Pipe::Pipe(USBController const& controller, Type type, Direction direction, u8 e
     , m_endpoint_address(endpoint_address)
     , m_max_packet_size(max_packet_size)
     , m_data_toggle(false)
+    , m_dma_pool(move(dma_pool))
 {
 }
 
 ErrorOr<NonnullOwnPtr<ControlPipe>> ControlPipe::try_create_pipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address)
 {
-    return adopt_nonnull_own_or_enomem(new (nothrow) ControlPipe(controller, direction, endpoint_address, max_packet_size, device_address));
+    auto dma_pool = TRY(USBDMAPool<USBDMAHandle>::try_create("Buffer pool"sv, max_packet_size, 64));
+    return adopt_nonnull_own_or_enomem(new (nothrow) ControlPipe(controller, direction, endpoint_address, max_packet_size, device_address, move(dma_pool)));
 }
 
-ControlPipe::ControlPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address)
-    : Pipe(controller, Pipe::Type::Control, direction, endpoint_address, max_packet_size, device_address)
+ControlPipe::ControlPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool)
+    : Pipe(controller, Pipe::Type::Control, direction, endpoint_address, max_packet_size, device_address, move(dma_pool))
 {
 }
 
@@ -44,7 +46,7 @@ ErrorOr<size_t> ControlPipe::control_transfer(u8 request_type, u8 request, u16 v
     usb_request.index = index;
     usb_request.length = length;
 
-    auto transfer = TRY(Transfer::try_create(*this, length));
+    auto transfer = TRY(Transfer::try_create(*this, length, *m_dma_pool.ptr()));
     transfer->set_setup_packet(usb_request);
 
     dbgln_if(USB_DEBUG, "Pipe: Transfer allocated @ {}", transfer->buffer_physical());
@@ -60,18 +62,19 @@ ErrorOr<size_t> ControlPipe::control_transfer(u8 request_type, u8 request, u16 v
 
 ErrorOr<NonnullOwnPtr<BulkPipe>> BulkPipe::try_create_pipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address)
 {
-    return adopt_nonnull_own_or_enomem(new (nothrow) BulkPipe(controller, direction, endpoint_address, max_packet_size, device_address));
+    auto dma_pool = TRY(USBDMAPool<USBDMAHandle>::try_create("Buffer pool"sv, max_packet_size, 64));
+    return adopt_nonnull_own_or_enomem(new (nothrow) BulkPipe(controller, direction, endpoint_address, max_packet_size, device_address, move(dma_pool)));
 }
 
-BulkPipe::BulkPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address)
-    : Pipe(controller, Pipe::Type::Bulk, direction, endpoint_address, max_packet_size, device_address)
+BulkPipe::BulkPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool)
+    : Pipe(controller, Pipe::Type::Bulk, direction, endpoint_address, max_packet_size, device_address, move(dma_pool))
 {
 }
 
 ErrorOr<size_t> BulkPipe::bulk_transfer(u16 length, void* data)
 {
     size_t transfer_length = 0;
-    auto transfer = TRY(Transfer::try_create(*this, length));
+    auto transfer = TRY(Transfer::try_create(*this, length, *m_dma_pool.ptr()));
 
     if (m_direction == Direction::In) {
         dbgln_if(USB_DEBUG, "Pipe: Bulk in transfer allocated @ {}", transfer->buffer_physical());
@@ -90,11 +93,12 @@ ErrorOr<size_t> BulkPipe::bulk_transfer(u16 length, void* data)
 
 ErrorOr<NonnullOwnPtr<InterruptPipe>> InterruptPipe::try_create_pipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval)
 {
-    return adopt_nonnull_own_or_enomem(new (nothrow) InterruptPipe(controller, direction, endpoint_address, max_packet_size, device_address, poll_interval));
+    auto dma_pool = TRY(USBDMAPool<USBDMAHandle>::try_create("Buffer pool"sv, max_packet_size, 64));
+    return adopt_nonnull_own_or_enomem(new (nothrow) InterruptPipe(controller, direction, endpoint_address, max_packet_size, device_address, poll_interval, move(dma_pool)));
 }
 
-InterruptPipe::InterruptPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval)
-    : Pipe(controller, Pipe::Type::Interrupt, direction, endpoint_address, max_packet_size, device_address)
+InterruptPipe::InterruptPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool)
+    : Pipe(controller, Pipe::Type::Interrupt, direction, endpoint_address, max_packet_size, device_address, move(dma_pool))
     , m_poll_interval(poll_interval)
 {
 }
