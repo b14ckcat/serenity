@@ -79,6 +79,7 @@ ErrorOr<void> UHCIController::initialize()
     dmesgln("UHCI: Interrupt line: {}", interrupt_number());
 
     TRY(spawn_port_process());
+    TRY(spawn_async_supervisor());
 
     TRY(reset());
     return start();
@@ -89,6 +90,7 @@ UNMAP_AFTER_INIT UHCIController::UHCIController(PCI::DeviceIdentifier const& pci
     , IRQHandler(pci_device_identifier.interrupt_line().value())
     , m_registers_io_window(move(registers_io_window))
     , m_schedule_lock(LockRank::None)
+    , m_async_lock(LockRank::None)
 {
 }
 
@@ -465,7 +467,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+ErrorOr<QueueHead*> UHCIController::submit_bulk_transfer_common(Transfer& transfer)
 {
     Pipe& pipe = transfer.pipe();
     dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
@@ -496,6 +498,13 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 
     enqueue_qh(transfer_queue, m_bulk_qh_anchor);
 
+    return transfer_queue;
+}
+
+ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+{
+    auto transfer_queue = TRY(submit_bulk_transfer_common(transfer));
+
     size_t transfer_size = 0;
     while (!transfer.complete()) {
         transfer_size = poll_transfer_queue(*transfer_queue);
@@ -508,6 +517,24 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     m_queue_head_pool->release_to_pool(transfer_queue);
 
     return transfer_size;
+}
+
+ErrorOr<void> UHCIController::submit_async_bulk_transfer(Transfer& transfer)
+{
+    SpinlockLocker locker(m_async_lock);
+
+    auto transfer_queue = TRY(submit_bulk_transfer_common(transfer));
+    m_active_async_qhs.append(transfer_queue);
+
+    return {};
+}
+
+ErrorOr<void> UHCIController::submit_async_interrupt_transfer(Transfer& transfer)
+{
+    SpinlockLocker locker(m_async_lock);
+
+    (void)transfer;
+    return {};
 }
 
 size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
@@ -540,6 +567,37 @@ size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
         transfer->set_complete();
 
     return transfer_size;
+}
+
+ErrorOr<void> UHCIController::spawn_async_supervisor()
+{
+    LockRefPtr<Thread> async_supervisor_thread;
+    (void)Process::create_kernel_process(async_supervisor_thread, TRY(KString::try_create("UHCI Async Supervisor Task"sv)), [&] {
+        for (;;) {
+            SpinlockLocker locker(m_async_lock);
+            for (size_t i = 0; i < m_active_async_qhs.size(); i++) {
+                QueueHead* qh = m_active_async_qhs[i];
+                TransferDescriptor* td = qh->get_first_td();
+                while (td != nullptr) {
+                    if (td->active()) {
+                        break;
+                    } else if (td->next_td() == nullptr) { // Finished QH
+                        qh->transfer()->invoke_async_callback();
+                        m_active_async_qhs.remove(i);
+                        dequeue_qh(qh);
+                        free_descriptor_chain(qh->get_first_td());
+                        qh->free();
+                        m_queue_head_pool->release_to_pool(qh);
+                    }
+                }
+            }
+            locker.unlock();
+
+            (void)Thread::current()->sleep(Time::from_milliseconds(1));
+        }
+    });
+
+    return {};
 }
 
 ErrorOr<void> UHCIController::spawn_port_process()
