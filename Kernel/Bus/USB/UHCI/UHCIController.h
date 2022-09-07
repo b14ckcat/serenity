@@ -48,6 +48,8 @@ public:
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_async_bulk_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -55,6 +57,9 @@ public:
 
 private:
     explicit UHCIController(PCI::DeviceIdentifier const& pci_device_identifier);
+
+    ErrorOr<void> spawn_async_supervisor();
+    ErrorOr<QueueHead*> submit_bulk_transfer_common(Transfer& transfer);
 
     u16 read_usbcmd() { return m_io_base.offset(0).in<u16>(); }
     u16 read_usbsts() { return m_io_base.offset(0x2).in<u16>(); }
@@ -96,11 +101,13 @@ private:
     IOAddress m_io_base;
 
     Spinlock m_schedule_lock;
+    Spinlock m_async_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
     OwnPtr<USBDMAPool<QueueHead>> m_queue_head_pool;
     OwnPtr<USBDMAPool<TransferDescriptor>> m_transfer_descriptor_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
+    Vector<QueueHead*> m_active_async_qhs;
 
     QueueHead* m_schedule_begin_anchor;
     Array<QueueHead*, NUMBER_OF_INTERRUPT_QHS> m_interrupt_qh_anchor_arr;
