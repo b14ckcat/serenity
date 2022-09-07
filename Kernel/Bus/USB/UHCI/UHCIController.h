@@ -50,6 +50,8 @@ public:
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_async_bulk_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -66,6 +68,9 @@ private:
     u8 read_sofmod() { return m_registers_io_window->read8(0xc); }
     u16 read_portsc1() { return m_registers_io_window->read16(0x10); }
     u16 read_portsc2() { return m_registers_io_window->read16(0x12); }
+
+    ErrorOr<void> spawn_async_supervisor();
+    ErrorOr<QueueHead*> submit_bulk_transfer_common(Transfer& transfer);
 
     void write_usbcmd(u16 value) { m_registers_io_window->write16(0, value); }
     void write_usbsts(u16 value) { m_registers_io_window->write16(0x2, value); }
@@ -98,12 +103,14 @@ private:
     NonnullOwnPtr<IOWindow> m_registers_io_window;
 
     Spinlock m_schedule_lock;
+    Spinlock m_async_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
     OwnPtr<BufferPool> m_queue_head_pool;
     OwnPtr<BufferPool> m_transfer_descriptor_pool;
     OwnPtr<BufferPool> m_iso_transfer_descriptor_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
+    Vector<QueueHead*> m_active_async_qhs;
 
     QueueHead* m_schedule_begin_anchor;
     Array<QueueHead*, NUMBER_OF_INTERRUPT_QHS> m_interrupt_qh_anchor_arr;

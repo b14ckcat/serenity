@@ -18,9 +18,11 @@
 // TODO: Callback stuff in this class please!
 namespace Kernel::USB {
 
-class Transfer final : public AtomicRefCounted<Transfer> {
+typedef void (*usb_async_callback)();
+
+class Transfer : public AtomicRefCounted<Transfer> {
 public:
-    static ErrorOr<NonnullLockRefPtr<Transfer>> try_create(Pipe&, u16 length, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr);
+    static ErrorOr<NonnullLockRefPtr<Transfer>> try_create(Pipe&, u16 length, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr, usb_async_callback completion_callback=nullptr);
 
     Transfer() = delete;
 
@@ -39,9 +41,10 @@ public:
     u16 transfer_data_size() const { return m_transfer_data_size; }
     bool complete() const { return m_complete; }
     bool error_occurred() const { return m_error_occurred; }
+    void invoke_async_callback();
 
 private:
-    Transfer(Pipe& pipe, u16 len, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr);
+    Transfer(Pipe& pipe, u16 len, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr, usb_async_callback completion_callback = nullptr);
     Pipe& m_pipe;                    // Pipe that initiated this transfer
     USBRequestData m_request;        // USB request
     u16 m_transfer_data_size { 0 };  // Size of the transfer's data stage
@@ -49,6 +52,7 @@ private:
     bool m_error_occurred { false }; // Did an error occur during this transfer?
     VirtualAddress m_buffer_vaddr;
     PhysicalAddress m_buffer_paddr;
+    usb_async_callback m_completion_callback;
 };
 
 }

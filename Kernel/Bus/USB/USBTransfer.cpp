@@ -9,16 +9,17 @@
 
 namespace Kernel::USB {
 
-ErrorOr<NonnullLockRefPtr<Transfer>> Transfer::try_create(Pipe& pipe, u16 length, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr)
+ErrorOr<NonnullLockRefPtr<Transfer>> Transfer::try_create(Pipe& pipe, u16 length, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr, usb_async_callback completion_callback)
 {
-    return adopt_nonnull_lock_ref_or_enomem(new (nothrow) Transfer(pipe, length, buffer_vaddr, buffer_paddr));
+    return adopt_nonnull_lock_ref_or_enomem(new (nothrow) Transfer(pipe, length, buffer_vaddr, buffer_paddr, completion_callback));
 }
 
-Transfer::Transfer(Pipe& pipe, u16 len, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr)
+Transfer::Transfer(Pipe& pipe, u16 len, VirtualAddress buffer_vaddr, PhysicalAddress buffer_paddr, usb_async_callback completion_callback)
     : m_pipe(pipe)
     , m_transfer_data_size(len)
     , m_buffer_vaddr(buffer_vaddr)
     , m_buffer_paddr(buffer_paddr)
+    , m_completion_callback(completion_callback)
 {
 }
 
@@ -45,6 +46,15 @@ ErrorOr<void> Transfer::write_buffer(u16 len, void* data)
     memcpy(buffer().as_ptr(), data, len);
 
     return {};
+}
+
+void Transfer::invoke_async_callback()
+{
+    if (m_completion_callback != nullptr)
+        m_completion_callback();
+    // TODO: Make this impossible without having to subclass and cast everywhere
+    else
+        dbgln_if(USB_DEBUG, "Error: attempted to invoke callback of synchronous transfer");
 }
 
 }
