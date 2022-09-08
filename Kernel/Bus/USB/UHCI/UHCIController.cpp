@@ -467,10 +467,11 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<QueueHead*> UHCIController::submit_bulk_transfer_common(Transfer& transfer)
+ErrorOr<QueueHead*> UHCIController::create_queue(Transfer& transfer)
 {
     Pipe& pipe = transfer.pipe();
-    dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
+
+    dbgln_if(UHCI_DEBUG, "UHCI: Received bulk/interrupt transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
 
     // Create a new descriptor chain
     TransferDescriptor* last_data_descriptor;
@@ -496,15 +497,15 @@ ErrorOr<QueueHead*> UHCIController::submit_bulk_transfer_common(Transfer& transf
     transfer_queue->attach_transfer_descriptor_chain(data_descriptor_chain);
     transfer_queue->set_transfer(&transfer);
 
-    enqueue_qh(transfer_queue, m_bulk_qh_anchor);
-
     return transfer_queue;
 }
 
 ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
 {
-    auto transfer_queue = TRY(submit_bulk_transfer_common(transfer));
+    auto transfer_queue = TRY(create_queue(transfer));
+    enqueue_qh(transfer_queue, m_bulk_qh_anchor);
 
+    // Poll until all TDs are no longer active
     size_t transfer_size = 0;
     while (!transfer.complete()) {
         transfer_size = poll_transfer_queue(*transfer_queue);
@@ -523,17 +524,23 @@ ErrorOr<void> UHCIController::submit_async_bulk_transfer(Transfer& transfer)
 {
     SpinlockLocker locker(m_async_lock);
 
-    auto transfer_queue = TRY(submit_bulk_transfer_common(transfer));
+    auto transfer_queue = TRY(create_queue(transfer));
+    enqueue_qh(transfer_queue, m_bulk_qh_anchor);
     m_active_async_qhs.append(transfer_queue);
 
     return {};
 }
 
-ErrorOr<void> UHCIController::submit_async_interrupt_transfer(Transfer& transfer)
+ErrorOr<void> UHCIController::submit_async_interrupt_transfer(Transfer& transfer, u16 ms_interval)
 {
     SpinlockLocker locker(m_async_lock);
+    auto transfer_queue = TRY(create_queue(transfer));
 
-    (void)transfer;
+    int interval = 0;
+    while (ms_interval < (1 << interval) && interval < NUMBER_OF_INTERRUPT_QHS)
+        interval++;
+
+    enqueue_qh(transfer_queue, m_interrupt_qh_anchor_arr[interval]);
     return {};
 }
 
