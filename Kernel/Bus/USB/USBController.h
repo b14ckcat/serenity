@@ -26,7 +26,7 @@ public:
     virtual ErrorOr<size_t> submit_control_transfer(Transfer&) = 0;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) = 0;
     virtual ErrorOr<void> submit_async_bulk_transfer(Transfer& transfer) = 0;
-    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer) = 0;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer, u16 ms_interval) = 0;
 
     u8 allocate_address();
 

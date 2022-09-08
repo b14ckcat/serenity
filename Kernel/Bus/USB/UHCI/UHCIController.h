@@ -49,7 +49,7 @@ public:
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
     virtual ErrorOr<void> submit_async_bulk_transfer(Transfer& transfer) override;
-    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer, u16 ms_interval) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -59,7 +59,7 @@ private:
     explicit UHCIController(PCI::DeviceIdentifier const& pci_device_identifier);
 
     ErrorOr<void> spawn_async_supervisor();
-    ErrorOr<QueueHead*> submit_bulk_transfer_common(Transfer& transfer);
+    ErrorOr<QueueHead*> create_queue(Transfer& transfer);
 
     u16 read_usbcmd() { return m_io_base.offset(0).in<u16>(); }
     u16 read_usbsts() { return m_io_base.offset(0x2).in<u16>(); }
