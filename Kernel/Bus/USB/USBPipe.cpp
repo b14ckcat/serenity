@@ -132,6 +132,19 @@ InterruptInPipe::InterruptInPipe(USBController const& controller, u8 endpoint_ad
 {
 }
 
+ErrorOr<NonnullLockRefPtr<Transfer>> InterruptInPipe::interrupt_transfer(u16 length, u16 interval, usb_async_callback callback)
+{
+    VirtualAddress vaddr; 
+    PhysicalAddress paddr;
+    TRY(m_buffer_pool->take(vaddr, paddr));
+    auto transfer = TRY(Transfer::try_create(*this, length, vaddr, paddr, callback));
+
+    dbgln_if(USB_DEBUG, "Pipe: Interrupt in transfer allocated @ {}", transfer->buffer_physical());
+    TRY(m_controller->submit_async_interrupt_transfer(transfer, interval));
+    
+    return transfer;
+}
+
 ErrorOr<NonnullOwnPtr<InterruptOutPipe>> InterruptOutPipe::create(USBController const& controller, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval)
 {
     auto buffer_pool = TRY(Memory::BufferPool::create(16, 64, Memory::BufferPool::Type::DMA));

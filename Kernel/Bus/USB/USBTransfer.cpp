@@ -51,7 +51,7 @@ ErrorOr<void> Transfer::write_buffer(u16 len, void* data)
 void Transfer::invoke_async_callback()
 {
     if (m_completion_callback != nullptr)
-        m_completion_callback();
+        m_completion_callback(this);
     // TODO: Make this impossible without having to subclass and cast everywhere
     else
         dbgln_if(USB_DEBUG, "Error: attempted to invoke callback of synchronous transfer");

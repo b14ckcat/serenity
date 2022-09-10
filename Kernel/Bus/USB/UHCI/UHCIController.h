@@ -24,7 +24,16 @@
 
 namespace Kernel::USB {
 
-using namespace Memory;
+struct AsyncTransferHandle {
+    AsyncTransferHandle(NonnullLockRefPtr<Transfer> transfer, QueueHead *qh)
+    : transfer(transfer)
+    , qh(qh)
+    {
+    }
+
+    NonnullLockRefPtr<Transfer> transfer;
+    QueueHead *qh; 
+};
 
 class UHCIController final
     : public USBController
@@ -50,8 +59,8 @@ public:
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
-    virtual ErrorOr<void> submit_async_bulk_transfer(Transfer& transfer) override;
-    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer, u16 ms_interval) override;
+    virtual ErrorOr<void> submit_async_bulk_transfer(NonnullLockRefPtr<Transfer> transfer) override;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(NonnullLockRefPtr<Transfer> transfer, u16 ms_interval) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -106,11 +115,11 @@ private:
     Spinlock m_async_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
-    OwnPtr<BufferPool> m_queue_head_pool;
-    OwnPtr<BufferPool> m_transfer_descriptor_pool;
-    OwnPtr<BufferPool> m_iso_transfer_descriptor_pool;
+    OwnPtr<Memory::BufferPool> m_queue_head_pool;
+    OwnPtr<Memory::BufferPool> m_transfer_descriptor_pool;
+    OwnPtr<Memory::BufferPool> m_iso_transfer_descriptor_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
-    Vector<QueueHead*> m_active_async_qhs;
+    Vector<AsyncTransferHandle> m_active_async_transfers;
 
     QueueHead* m_schedule_begin_anchor;
     Array<QueueHead*, NUMBER_OF_INTERRUPT_QHS> m_interrupt_qh_anchor_arr;
@@ -120,7 +129,7 @@ private:
     // reclamation instead of actually terminating
     QueueHead* m_bulk_qh_anchor;
 
-    OwnPtr<Region> m_framelist;
+    OwnPtr<Memory::Region> m_framelist;
 
     // Bitfield containing whether a given port should signal a change in reset or not.
     u8 m_port_reset_change_statuses { 0 };

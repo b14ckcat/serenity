@@ -366,6 +366,15 @@ struct alignas(16) QueueHead {
         m_bookkeeping.in_use = false;
     }
 
+    void reinitialize()
+    {
+
+        for (TransferDescriptor *iter = get_first_td(); iter != nullptr; iter = iter->next_td()) {
+            iter->set_active();
+        }
+        attach_transfer_descriptor_chain(get_first_td());
+    }
+
 private:
     u32 m_link_ptr { 0 };                  // Pointer to the next horizontal object that the controller will execute after this one
     volatile u32 m_element_link_ptr { 0 }; // Pointer to the first data object in the queue (can be modified by hw)

@@ -15,10 +15,7 @@
 #include <Kernel/Memory/PhysicalPage.h>
 #include <Kernel/Memory/Region.h>
 
-// TODO: Callback stuff in this class please!
 namespace Kernel::USB {
-
-typedef void (*usb_async_callback)();
 
 class Transfer : public AtomicRefCounted<Transfer> {
 public:
