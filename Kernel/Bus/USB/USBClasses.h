@@ -33,4 +33,8 @@ static constexpr u8 USB_CLASS_MISCELLANEOUS = 0xEF;
 static constexpr u8 USB_CLASS_APPLICATION_SPECIFIC = 0xFE;
 static constexpr u8 USB_CLASS_VENDOR_SPECIFIC = 0xFF;
 
+// HID specific constants
+static constexpr u8 USB_HID_PROTOCOL_KEYBOARD = 0x1;
+static constexpr u8 USB_HID_PROTOCOL_MOUSE = 0x2;
+
 }

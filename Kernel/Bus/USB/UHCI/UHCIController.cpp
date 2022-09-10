@@ -475,7 +475,7 @@ ErrorOr<QueueHead*> UHCIController::create_queue(Transfer& transfer)
 
     // Create a new descriptor chain
     TransferDescriptor* last_data_descriptor;
-    TransferDescriptor* data_descriptor_chain;
+    TransferDescriptor* data_descriptor_chain; 
     auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr());
     TRY(create_chain(pipe, transfer.pipe().direction() == Pipe::Direction::In ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
 
@@ -520,27 +520,30 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<void> UHCIController::submit_async_bulk_transfer(Transfer& transfer)
+ErrorOr<void> UHCIController::submit_async_bulk_transfer(NonnullLockRefPtr<Transfer> transfer)
 {
     SpinlockLocker locker(m_async_lock);
 
-    auto transfer_queue = TRY(create_queue(transfer));
+    auto transfer_queue = TRY(create_queue(*transfer));
     enqueue_qh(transfer_queue, m_bulk_qh_anchor);
-    m_active_async_qhs.append(transfer_queue);
+    m_active_async_transfers.append({transfer, transfer_queue});
 
     return {};
 }
 
-ErrorOr<void> UHCIController::submit_async_interrupt_transfer(Transfer& transfer, u16 ms_interval)
+ErrorOr<void> UHCIController::submit_async_interrupt_transfer(NonnullLockRefPtr<Transfer> transfer, u16 ms_interval)
 {
     SpinlockLocker locker(m_async_lock);
     auto transfer_queue = TRY(create_queue(transfer));
 
-    int interval = 0;
-    while (ms_interval < (1 << interval) && interval < NUMBER_OF_INTERRUPT_QHS)
+    u8 interval = 0;
+    while ((1 << interval) < ms_interval && interval < NUMBER_OF_INTERRUPT_QHS)
         interval++;
+    dbgln("Interval: {}", interval);
 
-    enqueue_qh(transfer_queue, m_interrupt_qh_anchor_arr[interval]);
+    enqueue_qh(transfer_queue, m_bulk_qh_anchor/*m_interrupt_qh_anchor_arr[interval]*/);
+    m_active_async_transfers.append({transfer, transfer_queue});
+
     return {};
 }
 
@@ -582,20 +585,24 @@ ErrorOr<void> UHCIController::spawn_async_supervisor()
     (void)Process::create_kernel_process(async_supervisor_thread, TRY(KString::try_create("UHCI Async Supervisor Task"sv)), [&] {
         for (;;) {
             SpinlockLocker locker(m_async_lock);
-            for (size_t i = 0; i < m_active_async_qhs.size(); i++) {
-                QueueHead* qh = m_active_async_qhs[i];
+            for (int i = m_active_async_transfers.size()-1; i >= 0; i--) {
+                AsyncTransferHandle handle = m_active_async_transfers[i];
+                QueueHead* qh = handle.qh;
                 TransferDescriptor* td = qh->get_first_td();
                 while (td != nullptr) {
                     if (td->active()) {
                         break;
                     } else if (td->next_td() == nullptr) { // Finished QH
-                        qh->transfer()->invoke_async_callback();
-                        m_active_async_qhs.remove(i);
-                        dequeue_qh(qh);
-                        free_descriptor_chain(qh->get_first_td());
-                        qh->free();
-                        m_queue_head_pool->release_to_pool(qh);
-                    }
+                        handle.transfer->invoke_async_callback();
+		        //dequeue_qh(qh);
+                        //free_descriptor_chain(qh->get_first_td());
+                        //qh->free();
+                        //m_queue_head_pool->release_to_pool(qh);
+                        //m_active_async_transfers.remove(i);
+                        qh->reinitialize();
+                    } else {
+		        td = td->next_td();
+		    }
                 }
             }
             locker.unlock();

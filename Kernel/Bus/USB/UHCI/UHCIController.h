@@ -24,6 +24,17 @@
 
 namespace Kernel::USB {
 
+struct AsyncTransferHandle {
+    AsyncTransferHandle(NonnullLockRefPtr<Transfer> transfer, QueueHead *qh)
+    : transfer(transfer)
+    , qh(qh)
+    {
+    }
+
+    NonnullLockRefPtr<Transfer> transfer;
+    QueueHead *qh; 
+};
+
 class UHCIController final
     : public USBController
     , public PCI::Device
@@ -48,8 +59,8 @@ public:
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
-    virtual ErrorOr<void> submit_async_bulk_transfer(Transfer& transfer) override;
-    virtual ErrorOr<void> submit_async_interrupt_transfer(Transfer& transfer, u16 ms_interval) override;
+    virtual ErrorOr<void> submit_async_bulk_transfer(NonnullLockRefPtr<Transfer> transfer) override;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(NonnullLockRefPtr<Transfer> transfer, u16 ms_interval) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -107,7 +118,7 @@ private:
     OwnPtr<USBDMAPool<QueueHead>> m_queue_head_pool;
     OwnPtr<USBDMAPool<TransferDescriptor>> m_transfer_descriptor_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
-    Vector<QueueHead*> m_active_async_qhs;
+    Vector<AsyncTransferHandle> m_active_async_transfers;
 
     QueueHead* m_schedule_begin_anchor;
     Array<QueueHead*, NUMBER_OF_INTERRUPT_QHS> m_interrupt_qh_anchor_arr;
@@ -126,4 +137,5 @@ private:
     // Bitfield containing whether a given port should signal a change in suspend or not.
     u8 m_port_suspend_change_statuses { 0 };
 };
+
 }

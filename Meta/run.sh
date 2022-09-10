@@ -79,6 +79,7 @@ if [ -z "$SERENITY_QEMU_BIN" ]; then
     fi
 fi
 
+#SERENITY_QEMU_BIN=/home/user1/repos/qemu/build/qemu-system-x86_64
 
 # For default values, see Kernel/CommandLine.cpp
 [ -z "$SERENITY_KERNEL_CMDLINE" ] && SERENITY_KERNEL_CMDLINE="hello"
@@ -490,5 +491,6 @@ else
         $SERENITY_PACKET_LOGGING_ARG \
         $SERENITY_NETFLAGS_WITH_DEFAULT_DEVICE \
         $SERENITY_KERNEL_AND_INITRD \
-        -append "${SERENITY_KERNEL_CMDLINE}"
+        -append "${SERENITY_KERNEL_CMDLINE}" \
+	-device usb-kbd
 fi
