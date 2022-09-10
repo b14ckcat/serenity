@@ -473,7 +473,7 @@ ErrorOr<QueueHead*> UHCIController::create_queue(Transfer& transfer)
 
     // Create a new descriptor chain
     TransferDescriptor* last_data_descriptor;
-    TransferDescriptor* data_descriptor_chain;
+    TransferDescriptor* data_descriptor_chain; 
     auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr());
     TRY(create_chain(pipe, transfer.pipe().direction() == Pipe::Direction::In ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
 
@@ -537,6 +537,7 @@ ErrorOr<void> UHCIController::submit_async_interrupt_transfer(Transfer& transfer
     int interval = 0;
     while (ms_interval < (1 << interval) && interval < NUMBER_OF_INTERRUPT_QHS)
         interval++;
+    dbgln("Interval: {}", ms_interval);
 
     enqueue_qh(transfer_queue, m_interrupt_qh_anchor_arr[interval]);
     return {};

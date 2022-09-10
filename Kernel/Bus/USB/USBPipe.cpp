@@ -103,4 +103,20 @@ InterruptPipe::InterruptPipe(USBController const& controller, Direction directio
 {
 }
 
+ErrorOr<void> InterruptPipe::interrupt_transfer(u16 length, void* data, u16 interval, usb_async_callback callback)
+{
+    auto transfer = TRY(Transfer::try_create(*this, length, *m_dma_pool.ptr(), callback));
+
+    if (m_direction == Direction::In) {
+        dbgln_if(USB_DEBUG, "Pipe: Interrupt in transfer allocated @ {}", transfer->buffer_physical());
+        TRY(m_controller->submit_async_interrupt_transfer(*transfer, interval));
+    } else if (m_direction == Direction::Out) {
+        TRY(transfer->write_buffer(length, data));
+        dbgln_if(USB_DEBUG, "Pipe: Bulk out transfer allocated @ {}", transfer->buffer_physical());
+        TRY(m_controller->submit_async_interrupt_transfer(*transfer, interval));
+    }
+    
+    return {};
+}
+
 }

@@ -194,4 +194,9 @@ u32 HIDManagement::get_char_from_character_map(KeyEvent event) const
     return code_point;
 }
 
+void HIDManagement::attach_hotplug_device(NonnullLockRefPtr<HIDDevice> device)
+{
+    m_hid_devices.append(move(device));
+}
+
 }

@@ -32,6 +32,7 @@ set(KERNEL_SOURCES
     Bus/USB/USBController.cpp
     Bus/USB/USBDevice.cpp
     Bus/USB/USBHub.cpp
+    Bus/USB/USBInterface.cpp
     Bus/USB/USBManagement.cpp
     Bus/USB/USBPipe.cpp
     Bus/USB/USBTransfer.cpp
@@ -71,6 +72,7 @@ set(KERNEL_SOURCES
     Devices/HID/MouseDevice.cpp
     Devices/HID/PS2KeyboardDevice.cpp
     Devices/HID/PS2MouseDevice.cpp
+    Devices/HID/USBKeyboardDevice.cpp
     Devices/HID/VMWareMouseDevice.cpp
     GlobalProcessExposed.cpp
     Graphics/Bochs/DisplayConnector.cpp

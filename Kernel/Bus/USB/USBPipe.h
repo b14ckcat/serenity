@@ -16,6 +16,8 @@
 
 namespace Kernel::USB {
 
+typedef void (*usb_async_callback)();
+
 class USBController;
 
 //
@@ -101,7 +103,7 @@ public:
     static ErrorOr<NonnullOwnPtr<InterruptPipe>> try_create_pipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval);
 
     u8 poll_interval() const { return m_poll_interval; }
-    ErrorOr<size_t> interrupt_transfer(u16 length, void* data);
+    ErrorOr<void> interrupt_transfer(u16 length, void* data, u16 interval, usb_async_callback callback);
 
 private:
     InterruptPipe(USBController const& controller, Direction direction, u8 endpoint_address, u16 max_packet_size, i8 device_address, u8 poll_interval, NonnullOwnPtr<USBDMAPool<USBDMAHandle>> dma_pool);
