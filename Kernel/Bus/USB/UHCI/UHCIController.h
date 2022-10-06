@@ -11,7 +11,6 @@
 #include <AK/NonnullOwnPtr.h>
 #include <AK/Platform.h>
 #include <Kernel/Bus/PCI/Device.h>
-#include <Kernel/Bus/USB/UHCI/UHCIDescriptorPool.h>
 #include <Kernel/Bus/USB/UHCI/UHCIDescriptorTypes.h>
 #include <Kernel/Bus/USB/UHCI/UHCIRootHub.h>
 #include <Kernel/Bus/USB/USBController.h>
@@ -19,10 +18,13 @@
 #include <Kernel/Interrupts/IRQHandler.h>
 #include <Kernel/Locking/Spinlock.h>
 #include <Kernel/Memory/AnonymousVMObject.h>
+#include <Kernel/Memory/BufferPool.h>
 #include <Kernel/Process.h>
 #include <Kernel/Time/TimeManagement.h>
 
 namespace Kernel::USB {
+
+using namespace Memory;
 
 class UHCIController final
     : public USBController
@@ -98,8 +100,9 @@ private:
     Spinlock m_schedule_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
-    OwnPtr<UHCIDescriptorPool<QueueHead>> m_queue_head_pool;
-    OwnPtr<UHCIDescriptorPool<TransferDescriptor>> m_transfer_descriptor_pool;
+    OwnPtr<BufferPool> m_queue_head_pool;
+    OwnPtr<BufferPool> m_transfer_descriptor_pool;
+    OwnPtr<BufferPool> m_iso_transfer_descriptor_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
 
     QueueHead* m_schedule_begin_anchor;
@@ -110,8 +113,7 @@ private:
     // reclamation instead of actually terminating
     QueueHead* m_bulk_qh_anchor;
 
-    OwnPtr<Memory::Region> m_framelist;
-    OwnPtr<Memory::Region> m_isochronous_transfer_pool;
+    OwnPtr<Region> m_framelist;
 
     // Bitfield containing whether a given port should signal a change in reset or not.
     u8 m_port_reset_change_statuses { 0 };
@@ -119,4 +121,5 @@ private:
     // Bitfield containing whether a given port should signal a change in suspend or not.
     u8 m_port_suspend_change_statuses { 0 };
 };
+
 }

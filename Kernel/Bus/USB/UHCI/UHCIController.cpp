@@ -130,7 +130,7 @@ ErrorOr<void> UHCIController::reset()
 
 UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
 {
-    m_queue_head_pool = TRY(UHCIDescriptorPool<QueueHead>::try_create("Queue Head Pool"sv));
+    m_queue_head_pool = TRY(BufferPool::create(MAXIMUM_NUMBER_OF_QHS, sizeof(QueueHead), BufferPool::Type::DMA));
 
     // Used as a sentinel value to loop back to the beginning of the list
     m_schedule_begin_anchor = allocate_queue_head();
@@ -145,27 +145,28 @@ UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
     m_bulk_qh_anchor = allocate_queue_head();
 
     // Now the Transfer Descriptor pool
-    m_transfer_descriptor_pool = TRY(UHCIDescriptorPool<TransferDescriptor>::try_create("Transfer Descriptor Pool"sv));
+    m_transfer_descriptor_pool = TRY(BufferPool::create(MAXIMUM_NUMBER_OF_TDS, sizeof(TransferDescriptor), BufferPool::Type::DMA));
 
-    m_isochronous_transfer_pool = TRY(MM.allocate_dma_buffer_page("UHCI Isochronous Descriptor Pool"sv, Memory::Region::Access::ReadWrite));
+    m_iso_transfer_descriptor_pool = TRY(BufferPool::create(UHCI_NUMBER_OF_ISOCHRONOUS_TDS, sizeof(TransferDescriptor), BufferPool::Type::DMA));
 
     // Set up the Isochronous Transfer Descriptor list
     m_iso_td_list.resize(UHCI_NUMBER_OF_ISOCHRONOUS_TDS);
     for (size_t i = 0; i < m_iso_td_list.size(); i++) {
-        auto placement_addr = reinterpret_cast<void*>(m_isochronous_transfer_pool->vaddr().get() + (i * sizeof(Kernel::USB::TransferDescriptor)));
-        auto paddr = static_cast<u32>(m_isochronous_transfer_pool->physical_page(0)->paddr().get() + (i * sizeof(Kernel::USB::TransferDescriptor)));
+        VirtualAddress iso_vaddr;
+	PhysicalAddress iso_paddr;
+        TRY(m_iso_transfer_descriptor_pool->take(iso_vaddr, iso_paddr));
 
         // Place a new Transfer Descriptor with a 1:1 in our region
         // The pointer returned by `new()` lines up exactly with the value
         // that we store in `paddr`, meaning our member functions directly
         // access the raw descriptor (that we later send to the controller)
-        m_iso_td_list.at(i) = new (placement_addr) Kernel::USB::TransferDescriptor(paddr);
-        auto transfer_descriptor = m_iso_td_list.at(i);
-        transfer_descriptor->set_in_use(true); // Isochronous transfers are ALWAYS marked as in use (in case we somehow get allocated one...)
-        transfer_descriptor->set_isochronous();
+        auto iso_td = new (iso_vaddr.as_ptr()) Kernel::USB::TransferDescriptor(iso_paddr);
+        iso_td->set_in_use(true); // Isochronous transfers are ALWAYS marked as in use (in case we somehow get allocated one...)
+        iso_td->set_isochronous();
+        m_iso_td_list.at(i) = iso_td;
 
         if constexpr (UHCI_VERBOSE_DEBUG)
-            transfer_descriptor->print();
+            iso_td->print();
     }
 
     if constexpr (UHCI_DEBUG) {
@@ -179,7 +180,6 @@ UNMAP_AFTER_INIT ErrorOr<void> UHCIController::create_structures()
 
 UNMAP_AFTER_INIT void UHCIController::setup_schedule()
 {
-    //
     // https://github.com/alkber/minix3-usbsubsystem/blob/master/usb/uhci-hcd.c
     //
     // This lad probably has the best explanation as to how this is actually done. I'll try and
@@ -246,14 +246,30 @@ UNMAP_AFTER_INIT void UHCIController::setup_schedule()
     m_bulk_qh_anchor->print();
 }
 
-QueueHead* UHCIController::allocate_queue_head()
+QueueHead *UHCIController::allocate_queue_head()
 {
-    return m_queue_head_pool->try_take_free_descriptor();
+    VirtualAddress vaddr;
+    PhysicalAddress paddr;
+    auto res = m_queue_head_pool->take(vaddr, paddr);
+    if (res.is_error()) {
+        dbgln_if(UHCI_DEBUG, "No UHCI queue head available");
+        return nullptr;
+    }
+    QueueHead *qh = new (vaddr.as_ptr()) QueueHead(paddr);
+    return qh;
 }
 
-TransferDescriptor* UHCIController::allocate_transfer_descriptor()
+TransferDescriptor *UHCIController::allocate_transfer_descriptor()
 {
-    return m_transfer_descriptor_pool->try_take_free_descriptor();
+    VirtualAddress vaddr;
+    PhysicalAddress paddr;
+    auto res = m_transfer_descriptor_pool->take(vaddr, paddr);
+    if (res.is_error()) {
+        dbgln_if(UHCI_DEBUG, "No UHCI queue head available");
+        return nullptr;
+    }
+    TransferDescriptor *td = new (vaddr.as_ptr()) TransferDescriptor(paddr);
+    return td;
 }
 
 ErrorOr<void> UHCIController::stop()
@@ -362,12 +378,10 @@ ErrorOr<void> UHCIController::create_chain(Pipe& pipe, PacketID direction, Ptr32
 void UHCIController::free_descriptor_chain(TransferDescriptor* first_descriptor)
 {
     TransferDescriptor* descriptor = first_descriptor;
-
     while (descriptor) {
         TransferDescriptor* next = descriptor->next_td();
-
         descriptor->free();
-        m_transfer_descriptor_pool->release_to_pool(descriptor);
+        m_transfer_descriptor_pool->release(descriptor);
         descriptor = next;
     }
 }
@@ -421,7 +435,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     status_td->terminate();
 
     // Link transfers together
-    if (data_descriptor_chain) {
+    if (data_descriptor_chain)     {
         setup_td->insert_next_transfer_descriptor(data_descriptor_chain);
         last_data_descriptor->insert_next_transfer_descriptor(status_td);
     } else {
@@ -460,7 +474,7 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     dequeue_qh(transfer_queue);
     free_descriptor_chain(transfer_queue->get_first_td());
     transfer_queue->free();
-    m_queue_head_pool->release_to_pool(transfer_queue);
+    m_queue_head_pool->release(transfer_queue);
 
     return transfer_size;
 }
@@ -505,7 +519,7 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     dequeue_qh(transfer_queue);
     free_descriptor_chain(transfer_queue->get_first_td());
     transfer_queue->free();
-    m_queue_head_pool->release_to_pool(transfer_queue);
+    m_queue_head_pool->release(transfer_queue);
 
     return transfer_size;
 }
