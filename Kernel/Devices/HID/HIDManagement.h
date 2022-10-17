@@ -53,6 +53,8 @@ public:
     void set_client(KeyboardClient* client);
     void set_maps(NonnullOwnPtr<KString> character_map_name, Keyboard::CharacterMapData const& character_map);
 
+    void attach_hotplug_device(NonnullLockRefPtr<HIDDevice> device);
+
 private:
     size_t generate_minor_device_number_for_mouse();
     size_t generate_minor_device_number_for_keyboard();

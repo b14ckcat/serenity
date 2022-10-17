@@ -31,6 +31,7 @@ set(KERNEL_SOURCES
     Bus/USB/USBController.cpp
     Bus/USB/USBDevice.cpp
     Bus/USB/USBHub.cpp
+    Bus/USB/USBInterface.cpp
     Bus/USB/USBManagement.cpp
     Bus/USB/USBPipe.cpp
     Bus/USB/USBTransfer.cpp
@@ -65,6 +66,7 @@ set(KERNEL_SOURCES
     Devices/HID/HIDManagement.cpp
     Devices/HID/KeyboardDevice.cpp
     Devices/HID/MouseDevice.cpp
+    Devices/HID/USBKeyboardDevice.cpp
     GlobalProcessExposed.cpp
     Graphics/Bochs/GraphicsAdapter.cpp
     Graphics/Bochs/QEMUDisplayConnector.cpp
