@@ -44,10 +44,16 @@ public:
     virtual ErrorOr<void> reset() override;
     virtual ErrorOr<void> stop() override;
     virtual ErrorOr<void> start() override;
+    ErrorOr<void> spawn_async_poll_process();
     ErrorOr<void> spawn_port_process();
+
+    ErrorOr<QueueHead*> create_queue(Transfer& transfer);
 
     virtual ErrorOr<size_t> submit_control_transfer(Transfer& transfer) override;
     virtual ErrorOr<size_t> submit_bulk_transfer(Transfer& transfer) override;
+    virtual ErrorOr<void> submit_async_bulk_transfer(NonnullLockRefPtr<Transfer> transfer) override;
+    virtual ErrorOr<void> submit_async_interrupt_transfer(NonnullLockRefPtr<Transfer> transfer, u16 ms_interval) override;
+    virtual void cancel_async_transfer(NonnullLockRefPtr<Transfer> transfer) override;
 
     void get_port_status(Badge<UHCIRootHub>, u8, HubStatus&);
     ErrorOr<void> set_port_feature(Badge<UHCIRootHub>, u8, HubFeatureSelector);
@@ -95,12 +101,14 @@ private:
 
     NonnullOwnPtr<IOWindow> m_registers_io_window;
 
+    Spinlock m_async_lock;
     Spinlock m_schedule_lock;
 
     OwnPtr<UHCIRootHub> m_root_hub;
     OwnPtr<UHCIDescriptorPool<QueueHead>> m_queue_head_pool;
     OwnPtr<UHCIDescriptorPool<TransferDescriptor>> m_transfer_descriptor_pool;
     Vector<TransferDescriptor*> m_iso_td_list;
+    Vector<AsyncTransferHandle> m_active_async_transfers;
 
     QueueHead* m_schedule_begin_anchor;
     Array<QueueHead*, NUMBER_OF_INTERRUPT_QHS> m_interrupt_qh_anchor_arr;

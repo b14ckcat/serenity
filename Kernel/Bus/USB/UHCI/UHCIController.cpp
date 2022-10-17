@@ -78,6 +78,7 @@ ErrorOr<void> UHCIController::initialize()
     dmesgln("UHCI: I/O base {}", m_registers_io_window);
     dmesgln("UHCI: Interrupt line: {}", interrupt_number());
 
+    TRY(spawn_async_poll_process());
     TRY(spawn_port_process());
 
     TRY(reset());
@@ -88,6 +89,7 @@ UNMAP_AFTER_INIT UHCIController::UHCIController(PCI::DeviceIdentifier const& pci
     : PCI::Device(pci_device_identifier.address())
     , IRQHandler(pci_device_identifier.interrupt_line().value())
     , m_registers_io_window(move(registers_io_window))
+    , m_async_lock(LockRank::None)
     , m_schedule_lock(LockRank::None)
 {
 }
@@ -465,17 +467,18 @@ ErrorOr<size_t> UHCIController::submit_control_transfer(Transfer& transfer)
     return transfer_size;
 }
 
-ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+ErrorOr<QueueHead*> UHCIController::create_queue(Transfer& transfer)
 {
     Pipe& pipe = transfer.pipe();
-    dbgln_if(UHCI_DEBUG, "UHCI: Received bulk transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
+
+    dbgln_if(UHCI_DEBUG, "UHCI: Received bulk/interrupt transfer for address {}. Root Hub is at address {}.", pipe.device_address(), m_root_hub->device_address());
 
     // Create a new descriptor chain
     TransferDescriptor* last_data_descriptor;
-    TransferDescriptor* data_descriptor_chain;
+    TransferDescriptor* data_descriptor_chain; 
     auto buffer_address = Ptr32<u8>(transfer.buffer_physical().as_ptr());
     TRY(create_chain(pipe, transfer.pipe().direction() == Pipe::Direction::In ? PacketID::IN : PacketID::OUT, buffer_address, pipe.max_packet_size(), transfer.transfer_data_size(), &data_descriptor_chain, &last_data_descriptor));
-
+ 
     last_data_descriptor->terminate();
 
     if constexpr (UHCI_VERBOSE_DEBUG) {
@@ -488,12 +491,18 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     QueueHead* transfer_queue = allocate_queue_head();
     if (!transfer_queue) {
         free_descriptor_chain(data_descriptor_chain);
-        return ENOMEM;
+	return ENOMEM;
     }
 
     transfer_queue->attach_transfer_descriptor_chain(data_descriptor_chain);
     transfer_queue->set_transfer(&transfer);
 
+    return transfer_queue;
+}
+
+ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
+{
+    auto transfer_queue = TRY(create_queue(transfer));
     enqueue_qh(transfer_queue, m_bulk_qh_anchor);
 
     size_t transfer_size = 0;
@@ -508,6 +517,46 @@ ErrorOr<size_t> UHCIController::submit_bulk_transfer(Transfer& transfer)
     m_queue_head_pool->release_to_pool(transfer_queue);
 
     return transfer_size;
+}
+
+ErrorOr<void> UHCIController::submit_async_bulk_transfer(NonnullLockRefPtr<Transfer> transfer)
+{
+    SpinlockLocker locker(m_async_lock);
+
+    auto transfer_queue = TRY(create_queue(*transfer));
+    m_active_async_transfers.append({ transfer, transfer_queue });
+    enqueue_qh(transfer_queue, m_bulk_qh_anchor);
+
+    return {};
+}
+
+ErrorOr<void> UHCIController::submit_async_interrupt_transfer(NonnullLockRefPtr<Transfer> transfer, u16 ms_interval)
+{
+    SpinlockLocker locker(m_async_lock);
+
+    auto transfer_queue = TRY(create_queue(*transfer));
+
+    u16 interval = 0;
+    while ((1 << interval) < ms_interval && interval < NUMBER_OF_INTERRUPT_QHS)
+        interval++;
+
+    m_active_async_transfers.append({ transfer, transfer_queue });
+    enqueue_qh(transfer_queue, m_interrupt_qh_anchor_arr[interval]);
+
+    return {};
+}
+
+void UHCIController::cancel_async_transfer(NonnullLockRefPtr<Transfer> transfer)
+{
+    SpinlockLocker async_locker(m_async_lock);
+    SpinlockLocker schedule_locker(m_schedule_lock);
+    for (size_t i = 0; i < m_active_async_transfers.size(); i++) {
+        if (m_active_async_transfers[i].transfer.ptr() == transfer.ptr()) {
+            dequeue_qh(m_active_async_transfers[i].qh);
+            m_active_async_transfers.remove(i);
+            return;
+        }
+    }
 }
 
 size_t UHCIController::poll_transfer_queue(QueueHead& transfer_queue)
@@ -551,6 +600,36 @@ ErrorOr<void> UHCIController::spawn_port_process()
                 m_root_hub->check_for_port_updates();
 
             (void)Thread::current()->sleep(Time::from_seconds(1));
+        }
+    });
+    return {};
+}
+
+ErrorOr<void> UHCIController::spawn_async_poll_process()
+{
+    // TODO: This value should ideally be 1 ms to match the UHCI frame period, which is
+    // also the smallest possible interval for interrupt transfers. However, it seems
+    // to use up valuable CPU cycles when set this low, so for now it is set to a higher
+    // value, since no devices we currently support require 1 ms interval interrupt transfers.
+    constexpr u8 poll_interval_ms = 10;
+
+    LockRefPtr<Thread> async_poll_thread;
+    (void)Process::create_kernel_process(async_poll_thread, TRY(KString::try_create("UHCI Async Poll Task"sv)), [&] {
+        for (;;) {
+            SpinlockLocker locker(m_async_lock);
+
+            for (auto& handle : m_active_async_transfers) {
+                QueueHead* qh = handle.qh;
+                for (auto td = qh->get_first_td(); td != nullptr && !td->active(); td = td->next_td()) {
+                    if (td->next_td() == nullptr) { // Finished QH
+                        handle.transfer->invoke_async_callback();
+                        qh->reinitialize(); // Set the QH to be active again
+                    }
+                }
+            }
+
+            locker.unlock();
+            (void)Thread::current()->sleep(Time::from_milliseconds(poll_interval_ms));
         }
     });
     return {};
