@@ -7,6 +7,7 @@
 #pragma once
 
 #include <Kernel/Bus/USB/USBController.h>
+#include <Kernel/Bus/USB/USBDescriptors.h>
 #include <Kernel/Bus/USB/USBDevice.h>
 #include <Kernel/Bus/USB/USBPipe.h>
 #include <Kernel/Bus/USB/USBTransfer.h>
@@ -18,17 +19,19 @@ namespace Kernel {
 class USBKeyboardDevice final : public KeyboardDevice {
     friend class DeviceManagement;
 public:
-    static ErrorOr<NonnullLockRefPtr<USBKeyboardDevice>> create(USB::Device const& device, NonnullOwnPtr<USB::InterruptInPipe> int_pipe);
+    static ErrorOr<NonnullLockRefPtr<USBKeyboardDevice>> create(NonnullLockRefPtr<USB::Device> device, USB::USBHIDDescriptor hid_descriptor, NonnullLockRefPtr<USB::Transfer> transfer);
 
     virtual void enable_interrupts() override {}
 
-    static void handle_usb_interrupt_transfer(USB::Transfer *transfer);
+    void handle_key_press(u8 key);
 
 private:
-    USBKeyboardDevice(USB::Device const& device, NonnullOwnPtr<USB::InterruptInPipe> int_pipe);
+    USBKeyboardDevice(NonnullLockRefPtr<USB::Device> device, USB::USBHIDDescriptor hid_descriptor, NonnullLockRefPtr<USB::Transfer> transfer);
 
-    USB::Device const& m_device;
-    NonnullOwnPtr<USB::InterruptInPipe> m_int_pipe;
+    NonnullLockRefPtr<USB::Device> m_device;
+    USB::USBHIDDescriptor m_hid_descriptor;
+    NonnullLockRefPtr<USB::Transfer> m_transfer;
 };
 
 }
+

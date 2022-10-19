@@ -271,15 +271,11 @@ void KeyboardDevice::key_state_changed(u8 scan_code, bool pressed)
     evaluate_block_conditions();
 }
 
-// FIXME: UNMAP_AFTER_INIT is fine for now, but for hot-pluggable devices
-// like USB keyboards, we need to remove this
 KeyboardDevice::KeyboardDevice()
     : HIDDevice(85, HIDManagement::the().generate_minor_device_number_for_keyboard())
 {
 }
 
-// FIXME: UNMAP_AFTER_INIT is fine for now, but for hot-pluggable devices
-// like USB keyboards, we need to remove this
 KeyboardDevice::~KeyboardDevice() = default;
 
 bool KeyboardDevice::can_read(OpenFileDescription const&, u64) const

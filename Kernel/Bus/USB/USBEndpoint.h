@@ -53,10 +53,12 @@ public:
     bool is_interrupt() const { return (m_descriptor.endpoint_attributes_bitmap & ENDPOINT_ATTRIBUTES_TRANSFER_TYPE_MASK) == ENDPOINT_ATTRIBUTES_TRANSFER_TYPE_INTERRUPT; }
 
     u16 max_packet_size() const { return m_descriptor.max_packet_size; }
-    u8 polling_interval() const { return m_descriptor.poll_interval_in_frames; }
+    u16 polling_interval() const { return m_descriptor.poll_interval_in_frames; }
+    u8 endpoint_address() const { return m_descriptor.endpoint_address; }
 
     ErrorOr<size_t> write(size_t count, u8 const* const data);
     ErrorOr<size_t> read(size_t count, u8* const data);
+    ErrorOr<NonnullLockRefPtr<Transfer>> read_async(size_t count, usb_async_callback callback);
 
 private:
     USBEndpoint(NonnullOwnPtr<USB::Pipe> pipe, Kernel::USB::USBEndpointDescriptor const& descriptor);

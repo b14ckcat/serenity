@@ -48,10 +48,22 @@ ErrorOr<NonnullOwnPtr<USBEndpoint>> USBEndpoint::create(USB::Device const& devic
         }
     }
 
-    auto pipe = TRY(USB::Pipe::try_create_pipe(device.controller(), type, direction, descriptor.endpoint_address, descriptor.max_packet_size, device.address(), descriptor.poll_interval_in_frames));
+    auto pipe = TRY(USB::Pipe::create(device.controller(), type, direction, descriptor.endpoint_address, descriptor.max_packet_size, device.address(), descriptor.poll_interval_in_frames));
     auto endpoint = TRY(adopt_nonnull_own_or_enomem(new USBEndpoint(move(pipe), descriptor)));
 
     return endpoint;
+}
+
+
+ErrorOr<NonnullLockRefPtr<Transfer>> USBEndpoint::read_async(size_t count, usb_async_callback callback)
+{
+    VERIFY(m_pipe->direction() == USB::Pipe::Direction::In || m_pipe->direction() == USB::Pipe::Direction::Bidirectional);
+    if (m_pipe->type() == USB::Pipe::Type::Interrupt) {
+        dbgln("CALLED1");
+        return m_pipe->interrupt_transfer(count, polling_interval(), move(callback));
+    }
+
+    return EINVAL;
 }
 
 USBEndpoint::USBEndpoint(NonnullOwnPtr<USB::Pipe> pipe, Kernel::USB::USBEndpointDescriptor const& descriptor)

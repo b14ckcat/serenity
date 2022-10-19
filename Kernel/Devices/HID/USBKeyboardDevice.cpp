@@ -6,27 +6,22 @@
 
 #include <Kernel/Devices/HID/USBKeyboardDevice.h>
 
-ErrorOr<NonnullLockRefPtr<USBKeyboardDevice>> USBKeyboardDevice::create(USB::Device const& device, NonnullOwnPtr<USB::InterruptInPipe> int_pipe)
+ErrorOr<NonnullLockRefPtr<USBKeyboardDevice>> USBKeyboardDevice::create(NonnullLockRefPtr<USB::Device> device, USB::USBHIDDescriptor hid_descriptor, NonnullLockRefPtr<USB::Transfer> transfer)
 {
-    auto keyboard_device = TRY(DeviceManagement::try_create_device<USBKeyboardDevice>(device, move(int_pipe)));
+    auto keyboard_device = TRY(DeviceManagement::try_create_device<USBKeyboardDevice>(device, hid_descriptor, transfer));
     return keyboard_device;
 }
 
-USBKeyboardDevice::USBKeyboardDevice(USB::Device const& device, NonnullOwnPtr<USB::InterruptInPipe> int_pipe)
+USBKeyboardDevice::USBKeyboardDevice(NonnullLockRefPtr<USB::Device> device, USB::USBHIDDescriptor hid_descriptor, NonnullLockRefPtr<USB::Transfer> transfer)
     : KeyboardDevice()
     , m_device(device)
-    , m_int_pipe(move(int_pipe))
+    , m_hid_descriptor(hid_descriptor)
+    , m_transfer(transfer)
 {
-    auto res = m_int_pipe->interrupt_in_transfer(8, 10, &USBKeyboardDevice::handle_usb_interrupt_transfer);
-    if (res.is_error()) {
-        dbgln("Error");
-    }
 }
 
-void USBKeyboardDevice::handle_usb_interrupt_transfer(USB::Transfer *transfer)
+void USBKeyboardDevice::handle_key_press(u8 key)
 {
-    for (int i = 0; i < 8; i++) {
-        dbgln("{}", transfer->buffer().as_ptr()[i]);
-    }
+    dbgln("KEY: {}", key);
+    key_state_changed(key, true);
 }
-

@@ -16,8 +16,9 @@ namespace Kernel::USB {
 
 class USBController;
 class Transfer;
+class Driver;
 
-using usb_async_callback = Function<void(Transfer* transfer)>;
+using usb_async_callback = Function<void(Driver* driver, Transfer* transfer)>;
 
 //
 // A pipe is the logical connection between a memory buffer on the PC (host) and

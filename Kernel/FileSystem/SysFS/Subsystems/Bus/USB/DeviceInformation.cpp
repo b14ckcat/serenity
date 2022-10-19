@@ -74,7 +74,7 @@ ErrorOr<void> SysFSUSBDeviceInformation::try_generate(KBufferBuilder& builder)
             TRY(interface_object.add("interface_string_desc_index"sv, interface_descriptor.interface_string_descriptor_index));
 
             auto endpoint_array = TRY(interface_object.add_array("endpoints"sv));
-            for (auto const& endpoint : interface.endpoints()) {
+            for (auto const& endpoint : interface.endpoint_descriptors()) {
                 auto endpoint_object = TRY(endpoint_array.add_object());
                 TRY(endpoint_object.add("length"sv, endpoint.descriptor_header.length));
                 TRY(endpoint_object.add("descriptor_length"sv, endpoint.descriptor_header.descriptor_type));

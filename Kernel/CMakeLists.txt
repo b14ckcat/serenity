@@ -25,7 +25,7 @@ set(KERNEL_SOURCES
     Bus/PCI/Access.cpp
     Bus/PCI/API.cpp
     Bus/PCI/Device.cpp
-    Bus/USB/Drivers/FTDI/FT232.cpp
+    Bus/USB/Drivers/HID/USBKeyboardDriver.cpp
     Bus/USB/UHCI/UHCIController.cpp
     Bus/USB/UHCI/UHCIRootHub.cpp
     Bus/USB/USBConfiguration.cpp

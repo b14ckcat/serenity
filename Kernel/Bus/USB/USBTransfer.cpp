@@ -5,20 +5,22 @@
  */
 
 #include <Kernel/Bus/USB/USBTransfer.h>
+#include <Kernel/Bus/USB/Drivers/USBDriver.h>
 #include <Kernel/Memory/MemoryManager.h>
 
 namespace Kernel::USB {
 
-ErrorOr<NonnullLockRefPtr<Transfer>> Transfer::create(Pipe& pipe, u16 length, Memory::Region& dma_buffer, usb_async_callback callback)
+ErrorOr<NonnullLockRefPtr<Transfer>> Transfer::create(Pipe& pipe, u16 length, Memory::Region& dma_buffer, usb_async_callback callback, LockRefPtr<Driver> driver)
 {
-    return adopt_nonnull_lock_ref_or_enomem(new (nothrow) Transfer(pipe, length, dma_buffer, move(callback)));
+    return adopt_nonnull_lock_ref_or_enomem(new (nothrow) Transfer(pipe, length, dma_buffer, move(callback), driver));
 }
 
-Transfer::Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer, usb_async_callback callback)
+Transfer::Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer, usb_async_callback callback, LockRefPtr<Driver> driver)
     : m_pipe(pipe)
     , m_dma_buffer(dma_buffer)
     , m_transfer_data_size(len)
     , m_callback(move(callback))
+    , m_driver(driver)
 {
 }
 
@@ -53,7 +55,7 @@ ErrorOr<void> Transfer::write_buffer(u16 len, void* data)
 void Transfer::invoke_async_callback()
 {
     if (m_callback)
-        m_callback(this);
+        m_callback(m_driver.ptr(), this);
 }
 
 }

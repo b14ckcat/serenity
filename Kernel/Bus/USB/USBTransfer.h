@@ -20,7 +20,7 @@ namespace Kernel::USB {
 
 class Transfer final : public AtomicRefCounted<Transfer> {
 public:
-    static ErrorOr<NonnullLockRefPtr<Transfer>> create(Pipe&, u16 length, Memory::Region& dma_buffer, usb_async_callback callback = nullptr);
+    static ErrorOr<NonnullLockRefPtr<Transfer>> create(Pipe&, u16 length, Memory::Region& dma_buffer, usb_async_callback callback = nullptr,  LockRefPtr<Driver> driver = nullptr);
 
     Transfer() = delete;
     ~Transfer();
@@ -44,7 +44,7 @@ public:
     void invoke_async_callback();
 
 private:
-    Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer, usb_async_callback callback);
+    Transfer(Pipe& pipe, u16 len, Memory::Region& dma_buffer, usb_async_callback callback, LockRefPtr<Driver> driver = nullptr);
     Pipe& m_pipe;                    // Pipe that initiated this transfer
     Memory::Region& m_dma_buffer;    // DMA buffer
     USBRequestData m_request;        // USB request
@@ -52,6 +52,8 @@ private:
     bool m_complete { false };       // Has this transfer been completed?
     bool m_error_occurred { false }; // Did an error occur during this transfer?
     usb_async_callback m_callback { nullptr };
+public:
+    LockRefPtr<Driver> m_driver;
 };
 
 }

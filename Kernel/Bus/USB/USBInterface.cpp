@@ -13,7 +13,6 @@
 #include <Kernel/Bus/USB/USBInterface.h>
 #include <Kernel/Bus/USB/USBPipe.h>
 #include <Kernel/Devices/HID/HIDManagement.h>
-#include <Kernel/Devices/HID/USBKeyboardDevice.h>
 
 namespace Kernel::USB {
 
@@ -30,6 +29,17 @@ ErrorOr<void> USBInterface::open()
 void USBInterface::close()
 {
     m_endpoints.clear();
+}
+
+ErrorOr<NonnullLockRefPtr<Transfer>> USBInterface::async_read_endpoint(u8 endpoint_address, size_t count, usb_async_callback callback)
+{
+    for (auto &endpoint : m_endpoints) {
+        if (endpoint.endpoint_address() == endpoint_address) {
+            return endpoint.read_async(count, move(callback));
+	}
+    }
+
+    return EINVAL;
 }
 
 }

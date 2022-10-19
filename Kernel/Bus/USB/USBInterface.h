@@ -23,7 +23,6 @@ public:
         , m_endpoint_descriptors(endpoint_descriptors)
     {
         m_endpoint_descriptors.ensure_capacity(descriptor.number_of_endpoints);
-        driver_probe();
     }
 
     ErrorOr<void> open();
@@ -31,8 +30,10 @@ public:
 
     ErrorOr<size_t> write_endpoint(u8 endpoint_address, size_t count, u8 const* const data);
     ErrorOr<size_t> read_endpoint(u8 endpoint_address, size_t count, u8* const data);
+    ErrorOr<NonnullLockRefPtr<Transfer>> async_read_endpoint(u8 endpoint_address, size_t count, usb_async_callback callback);
 
-    Vector<USBEndpointDescriptor> const& endpoints() const { return m_endpoint_descriptors; }
+    NonnullOwnPtrVector<USBEndpoint> const& endpoints() const { return m_endpoints; }
+    Vector<USBEndpointDescriptor> const& endpoint_descriptors() const { return m_endpoint_descriptors; }
 
     USBInterfaceDescriptor const& descriptor() const { return m_descriptor; }
     USBConfiguration const& configuration() const { return m_configuration; }
