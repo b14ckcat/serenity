@@ -31,6 +31,7 @@ set(KERNEL_SOURCES
     Bus/USB/USBConfiguration.cpp
     Bus/USB/USBController.cpp
     Bus/USB/USBDevice.cpp
+    Bus/USB/USBEndpoint.cpp
     Bus/USB/USBHub.cpp
     Bus/USB/USBInterface.cpp
     Bus/USB/USBManagement.cpp
@@ -537,7 +538,7 @@ else()
         Interrupts/IRQHandler.cpp
         Interrupts/SharedIRQHandler.cpp
         Interrupts/UnhandledInterruptHandler.cpp
-    )
+            Bus/USB/USBEndpoint.cpp Bus/USB/USBInterface.cpp)
 
     # Otherwise linker errors e.g undefined reference to `__aarch64_cas8_acq_rel'
     add_compile_options(-mno-outline-atomics -latomic)

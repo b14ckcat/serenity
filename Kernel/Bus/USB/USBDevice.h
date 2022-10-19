@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/NonnullOwnPtrVector.h>
 #include <AK/OwnPtr.h>
 #include <AK/Types.h>
 #include <AK/Vector.h>
@@ -54,7 +55,7 @@ public:
 
     ErrorOr<size_t> control_transfer(u8 request_type, u8 request, u16 value, u16 index, u16 length, void* data);
 
-    Vector<USBConfiguration> const& configurations() const { return m_configurations; }
+    NonnullOwnPtrVector<USBConfiguration> const& configurations() const { return m_configurations; }
 
     SysFSUSBDeviceInformation& sysfs_device_info_node(Badge<USB::Hub>) { return *m_sysfs_device_info_node; }
 
@@ -69,7 +70,7 @@ protected:
     u16 m_vendor_id { 0 };                      // This device's vendor ID assigned by the USB group
     u16 m_product_id { 0 };                     // This device's product ID assigned by the USB group
     USBDeviceDescriptor m_device_descriptor {}; // Device Descriptor obtained from USB Device
-    Vector<USBConfiguration> m_configurations;  // Configurations for this device
+    NonnullOwnPtrVector<USBConfiguration> m_configurations; // Configurations for this device
 
     NonnullLockRefPtr<USBController> m_controller;
     NonnullOwnPtr<Pipe> m_default_pipe; // Default communication pipe (endpoint0) used during enumeration

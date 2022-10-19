@@ -6,7 +6,9 @@
 
 #pragma once
 
-#include <AK/Vector.h>
+#include <AK/NonnullOwnPtrVector.h>
+#include <Kernel/Bus/USB/USBController.h>
+#include <Kernel/Bus/USB/USBEndpoint.h>
 
 namespace Kernel::USB {
 
@@ -24,6 +26,12 @@ public:
         driver_probe();
     }
 
+    ErrorOr<void> open();
+    void close();
+
+    ErrorOr<size_t> write_endpoint(u8 endpoint_address, size_t count, u8 const* const data);
+    ErrorOr<size_t> read_endpoint(u8 endpoint_address, size_t count, u8* const data);
+
     Vector<USBEndpointDescriptor> const& endpoints() const { return m_endpoint_descriptors; }
 
     USBInterfaceDescriptor const& descriptor() const { return m_descriptor; }
@@ -33,8 +41,7 @@ private:
     USBConfiguration const& m_configuration;              // Configuration that this interface belongs to
     USBInterfaceDescriptor const m_descriptor;            // Descriptor backing this interface
     Vector<USBEndpointDescriptor> m_endpoint_descriptors; // Endpoint descriptors for this interface (that we can use to open an endpoint)
-
-    void driver_probe();
+    NonnullOwnPtrVector<USBEndpoint> m_endpoints;
 };
 
 }
