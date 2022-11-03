@@ -8,6 +8,7 @@
 #include <Kernel/Bus/PCI/API.h>
 #include <Kernel/Bus/USB/UHCI/UHCIController.h>
 #include <Kernel/Bus/USB/USBManagement.h>
+#include <Kernel/Bus/USB/XHCI/XHCIController.h>
 #include <Kernel/CommandLine.h>
 #include <Kernel/FileSystem/SysFS/Subsystems/Bus/USB/BusDirectory.h>
 #include <Kernel/Sections.h>
@@ -28,6 +29,7 @@ UNMAP_AFTER_INIT void USBManagement::enumerate_controllers()
         return;
 
     MUST(PCI::enumerate([this](PCI::DeviceIdentifier const& device_identifier) {
+        dbgln("PCI IDENTIFIER: {:x}:{:x}:{:x}", device_identifier.class_code(), device_identifier.subclass_code(), device_identifier.prog_if().value());
         if (!(device_identifier.class_code().value() == 0xc && device_identifier.subclass_code().value() == 0x3))
             return;
         if (device_identifier.prog_if().value() == 0x0) {
@@ -51,7 +53,8 @@ UNMAP_AFTER_INIT void USBManagement::enumerate_controllers()
         }
 
         if (device_identifier.prog_if().value() == 0x30) {
-            dmesgln("USBManagement: xHCI controller found at {} is not currently supported.", device_identifier.address());
+            if (auto xhci_controller_or_error = XHCIController::create(device_identifier); !xhci_controller_or_error.is_error())
+                m_controllers.append(xhci_controller_or_error.release_value());
             return;
         }
 
