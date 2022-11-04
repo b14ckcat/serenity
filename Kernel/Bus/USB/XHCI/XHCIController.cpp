@@ -11,8 +11,7 @@ namespace Kernel::USB {
 
 ErrorOr<NonnullLockRefPtr<XHCIController>> XHCIController::create(PCI::DeviceIdentifier const& pci_device_identifier)
 {
-    // NOTE: This assumes that address is pointing to a valid XHCI controller.
-    auto registers_io_window = TRY(IOWindow::create_for_pci_device_bar(pci_device_identifier, PCI::HeaderType0BaseRegister::BAR4));
+    auto registers_io_window = TRY(IOWindow::create_for_pci_device_bar(pci_device_identifier, PCI::HeaderType0BaseRegister::BAR0));
     auto controller = TRY(adopt_nonnull_lock_ref_or_enomem(new (nothrow) XHCIController(pci_device_identifier, move(registers_io_window))));
 
     dmesgln("XHCI: Controller found {} @ {}", PCI::get_hardware_id(controller->pci_address()), controller->pci_address());

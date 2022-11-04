@@ -29,20 +29,20 @@ UNMAP_AFTER_INIT void USBManagement::enumerate_controllers()
         return;
 
     MUST(PCI::enumerate([this](PCI::DeviceIdentifier const& device_identifier) {
-        dbgln("PCI IDENTIFIER: {:x}:{:x}:{:x}", device_identifier.class_code(), device_identifier.subclass_code(), device_identifier.prog_if().value());
         if (!(device_identifier.class_code().value() == 0xc && device_identifier.subclass_code().value() == 0x3))
             return;
         if (device_identifier.prog_if().value() == 0x0) {
             if (kernel_command_line().disable_uhci_controller())
                 return;
 
-            if (auto uhci_controller_or_error = UHCIController::try_to_initialize(device_identifier); !uhci_controller_or_error.is_error())
+            if (auto uhci_controller_or_error = UHCIController::try_to_initialize(device_identifier); !uhci_controller_or_error.is_error()) {
                 m_controllers.append(uhci_controller_or_error.release_value());
+	}
 
             return;
         }
 
-        if (device_identifier.prog_if().value() == 0x10) {
+        if (device_identifier.prog_if().value() == 0x11) {
             dmesgln("USBManagement: OHCI controller found at {} is not currently supported.", device_identifier.address());
             return;
         }

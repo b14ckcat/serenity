@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <Kernel/Bus/PCI/API.h>
 #include <Kernel/Bus/PCI/Device.h>
 #include <Kernel/Bus/USB/USBController.h>
 #include <Kernel/IOWindow.h>
@@ -33,6 +34,13 @@ public:
 
 private:
     XHCIController(PCI::DeviceIdentifier const& pci_device_identifier, NonnullOwnPtr<IOWindow> registers_io_window);
+
+    u16 read_sbrn() { return Kernel::PCI::raw_read(pci_address(), 0x60, 1); }
+    u16 read_fladj() { return Kernel::PCI::raw_read(pci_address(), 0x61, 1); }
+    u16 read_dbesl() { return Kernel::PCI::raw_read(pci_address(), 0x62, 1) & 0x0f; }
+    u16 read_dbesld() { return Kernel::PCI::raw_read(pci_address(), 0x62, 1) & 0xf0; }
+    
+    void write_fladj(u8 value) { Kernel::PCI::raw_write(pci_address(), 0x61, 1, value); }
 
     virtual bool handle_irq(RegisterState const&) override;
 
