@@ -170,7 +170,19 @@ size_t get_BAR_space_size(Address address, HeaderType0BaseRegister pci_bar)
     return space_size;
 }
 
-void raw_access(Address address, u32 field, size_t access_size, u32 value)
+u32 raw_read(Address address, u32 field, size_t access_size)
+{
+    VERIFY(access_size != 0);
+    if (access_size == 1)
+        return read8_offsetted(address, field);
+    if (access_size == 2)
+        return read16_offsetted(address, field);
+    if (access_size == 4)
+        return read32_offsetted(address, field);
+    VERIFY_NOT_REACHED();
+}
+
+void raw_write(Address address, u32 field, size_t access_size, u32 value)
 {
     VERIFY(access_size != 0);
     if (access_size == 1) {
